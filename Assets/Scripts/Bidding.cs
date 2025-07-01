@@ -1,7 +1,8 @@
+using System;
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Windows;
 
 public class Bidding : MonoBehaviour
 {
@@ -50,7 +51,7 @@ public class Bidding : MonoBehaviour
     {
         currentBidText.text = currentBid.ToString();
         declarerText.text = thousand.players[declarer].name;
-        if ((currentBid == 350) && !oneTime)////////////////////////////////////////////
+        if ((currentBid == 350) && !oneTime)
         {
             oneTime = true;
             OnEveryonePassed();
@@ -67,8 +68,9 @@ public class Bidding : MonoBehaviour
             PlayerBidHUD.SetActive(true);
         }
     }
-    private IEnumerator ColorChange()
+    private IEnumerator ColorChange(bool isRunning = false)
     {
+        if (isRunning) yield break;
         Text textCol = BidInput.transform.GetChild(2).gameObject.GetComponent<Text>();
         textCol.color = Color.red;
         float elapsedTime = 0f;
@@ -152,35 +154,52 @@ public class Bidding : MonoBehaviour
         textCol.color = startCol;
         BidImages[player].SetActive(false);
     }
+    private int CountPassedPlayers()
+    {
+        int ct = 0;
+        if (pass[0]) ct++;
+        if (pass[1]) ct++;
+        if (pass[3]) ct++;
+        return ct;
+    }
+    private string SetBidText(int bid, bool valChanged)
+    {
+        string result = string.Empty;
+        if (bid > 350)
+        {
+            result = "350";
+        }
+        else if (bid <= currentBid)
+        {
+            result = (currentBid + 10).ToString();
+        }
+        else if (bid > 120 && !table.PlayerHasMarriage())
+        {
+            result = "120";
+        }
+        return result;
+    }
 
     //public functions
     public void NextTurn(bool skipping = false)
     {
-        if (!skipping)
+        if (!skipping && CountPassedPlayers() >= 2)
         {
-            int ct = 0;
-            if (pass[0]) ct++;
-            if (pass[1]) ct++;
-            if (pass[3]) ct++;
-            if (ct >= 2)
-            {
-                OnEveryonePassed();
-                return;
-            }
+            OnEveryonePassed();
+            return;
         }
 
-        turn++;
-        if(turn == 4) turn = 0;
-        if (pass[turn])
+        do
         {
-            turn++;
-            if (turn == 2) turn = 3;
-            if (turn == 4) turn = 0;
-        }
+            turn = (turn + 1) % 4;
+        } 
+        while (pass[turn] || turn == 2);
+
         DeclarerChanged();
         StartCoroutine(table.TurnPointerMove(turn));
         table.HandleBids(turn);
 
+        // player can't bid
         if (!table.PlayerHasMarriage() && currentBid >= 120 && bid10OneTime) 
         { 
             Bid10Obj.SetActive(false); 
@@ -211,26 +230,15 @@ public class Bidding : MonoBehaviour
         if(bid % 10 != 0)
         {
             input.text = ((bid + 5) / 10 * 10).ToString();
-            valChanged = true;
             StartCoroutine(ColorChange());
+            valChanged = true;
         }
-        if (bid > 350)
+
+        string newBid = SetBidText(bid, valChanged);
+        if (newBid != string.Empty)
         {
-            input.text = "350";
-            if (!valChanged)
-                StartCoroutine(ColorChange());
-        }
-        else if (bid <= currentBid)
-        {
-            input.text = (currentBid + 10).ToString();
-            if (!valChanged)
-                StartCoroutine(ColorChange());
-        }
-        else if (bid > 120 && !table.PlayerHasMarriage())
-        {
-            input.text = "120";
-            if (!valChanged)
-                StartCoroutine(ColorChange());
+            input.text = newBid;
+            StartCoroutine(ColorChange(valChanged));
         }
         else if (!valChanged)
         {
