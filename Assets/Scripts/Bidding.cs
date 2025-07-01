@@ -1,9 +1,6 @@
-using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Windows;
-
 public class Bidding : MonoBehaviour
 {
     [SerializeField] private Text declarerText;

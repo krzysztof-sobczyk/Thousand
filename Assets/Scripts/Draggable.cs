@@ -23,7 +23,6 @@ public class Draggable : MonoBehaviour
     {
         startPos = transform.localPosition;
         startRotation = transform.rotation;
-        //enableMovement = true;
     }
     private void OnMouseDown()
     {
@@ -62,8 +61,6 @@ public class Draggable : MonoBehaviour
         released = true;
         if (!placed1 && !placed2 && !onTable && exited && enableMovement)
         {
-            //gameObject.transform.localPosition = startPos;
-            //gameObject.transform.rotation = startRotation;
             PerformAMove();
         }
         else

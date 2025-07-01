@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -139,7 +138,7 @@ public class Enemy : MonoBehaviour
 
         yield return StartCoroutine(thousand.MoveCards(new List<GameObject> { cardToPlay }, new List<Vector3> { new Vector3(cardToPlay.transform.localPosition.x, cardToPlay.transform.localPosition.y, cardToPlay.transform.localPosition.z) }, 0.15f, new List<float> { angle }));
         yield return StartCoroutine(thousand.MoveCards(new List<GameObject> { cardToPlay }, new List<Vector3> { new Vector3(0, 0, -1 * table.cardsOnStack.Count) }, 0.6f, new List<float> { angle }));
-        /////////////////////////////////////////////////////////////////////////
+        
         table.CardPlacedByEnemy2(cardToPlay);
         if (!table.collectingCards && !table.gameIsEnding)
         {
@@ -195,7 +194,7 @@ public class Enemy : MonoBehaviour
             enemy.TakeTheCard(true);
         }
         thousand.MoveEnemyCards(enemyNumber);
-        // bid more ?
+
         if (newBid < thousand.bid) newBid = thousand.bid;
         if (newBid != thousand.bid) StartCoroutine(BidImageFade(enemyNumber, newBid));
         yield return new WaitForSeconds(2f);

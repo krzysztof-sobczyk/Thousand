@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -57,7 +56,6 @@ public class Exchanging : MonoBehaviour
         table.turn = 0;
         table.SetBidText();
         gameObject.SetActive(false);
-        // turn off hud
     }
 
     // public functions

@@ -1,8 +1,6 @@
-using System.Collections;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 public class Settings : MonoBehaviour
 {
@@ -105,13 +103,6 @@ public class Settings : MonoBehaviour
             Destroy(card.gameObject);
         }
         FindObjectOfType<Exchanging>().gameObject.SetActive(false);*/
-
-        //zresetowaæ te panele
-        //wyczyœciæ thousand playerCards
-        // wyczyœciæ bid
-        // enemy has card na no
-        //ClearPiles();
-        //thousand.PlayCards();
     }
     public void LoadScene(string sceneName)
     {

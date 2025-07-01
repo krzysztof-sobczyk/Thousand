@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Linq;
-using UnityEngine.Networking;
 
 public class Table : MonoBehaviour
 {
@@ -148,13 +147,11 @@ public class Table : MonoBehaviour
     private bool CheckIfCanBePlaced(GameObject card)
     {
         int suit = card.GetComponent<Selectable2>().suit;
-        //int value = card.GetComponent<Selectable2>().value;
         if (cardsOnStack.Count == 0) return true;
         else
         {
             GameObject prevCard = cardsOnStack[0];
             int prevSuit = prevCard.GetComponent<Selectable2>().suit;
-            //int prevValue = prevCard.GetComponent<Selectable2>().value;
             if (suit == prevSuit) return true;
             else
             {
@@ -628,8 +625,6 @@ public class Table : MonoBehaviour
                 halves.Add(sortedCards[i, 2]);
             else if(sortedCards[i, 2] == null && sortedCards[i, 3] != null)
                 halves.Add(sortedCards[i, 3]);
-            //print(cardsFromI);
-            //print(" ------------------------ ");
         }
         thousand.players[enemy].GetComponent<Enemy>().marriagesCount = marriages;
         //print("halves count: " + halves.Count);
@@ -684,8 +679,6 @@ public class Table : MonoBehaviour
         if (yourPoints > 120) yourPoints = 120;
         maxBid = yourPoints + pointsFromMarriages + pointsFromHalves;
         print(cardsYouCanTake + " speculatet result = " + 15*cardsYouCanTake + " your points: " + yourPoints);
-        //print("points from marriages: " + pointsFromMarriages);
-        //print("points from halves: " + pointsFromHalves);
         print("maxbid: " + maxBid);
         print("old maxbid: " + (15 * cardsYouCanTake + pointsFromMarriages + pointsFromHalves));
 
@@ -1176,7 +1169,6 @@ public class Table : MonoBehaviour
             cardsOnStack.Clear();
             playerNumbers.Clear();
             SetMarriagesSuits(4); SetMarriagesSuits(5); SetMarriagesSuits(6);
-            //print(points);
         }
         foreach(GameObject card in removedCards) Destroy(card);
         removedCards.Clear();
@@ -1670,7 +1662,6 @@ public class Table : MonoBehaviour
         }
         if (cardsOnStack.Count == 0)
         { // is starting a new game
-            //////////////////////////////////////////////////////////////////
             if (marriageNumber == -1)
             { // there is no marriage
                 return ThereIsNoMarriage(enemyCards, enemy);
