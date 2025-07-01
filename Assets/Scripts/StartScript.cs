@@ -85,73 +85,53 @@ public class StartScript : MonoBehaviour
         {
             Color actualCol = Tip.GetComponent<Text>().color;
             Tip.GetComponent<Text>().color = new Color(actualCol.r, actualCol.g, actualCol.b, 0);
-            float elapsedTime = 0f;
-            float durationTime = 1.5f;
-            while (elapsedTime < durationTime)
-            {
-                float t = elapsedTime / durationTime;
-                Tip.GetComponent<Text>().color = new Color(actualCol.r, actualCol.g, actualCol.b, Mathf.Lerp(0, 1, t));
-                elapsedTime += Time.deltaTime;
-                yield return null;
-                if (!Tip.activeSelf) yield break;
-            }
-            elapsedTime = 0f;
-            durationTime = 2.0f;
-            Tip.GetComponent<Text>().color = new Color(actualCol.r, actualCol.g, actualCol.b, 1);
-            while (elapsedTime < durationTime)
-            {
-                elapsedTime += Time.deltaTime;
-                yield return null;
-                if (!Tip.activeSelf) yield break;
-            }
-            elapsedTime = 0f;
-            durationTime = 1.5f;
-            while (elapsedTime < durationTime)
-            {
-                float t = elapsedTime / durationTime;
-                Tip.GetComponent<Text>().color = new Color(actualCol.r, actualCol.g, actualCol.b, Mathf.Lerp(1, 0, t));
-                elapsedTime += Time.deltaTime;
-                yield return null;
-                if (!Tip.activeSelf) yield break;
-            }
-            elapsedTime = 0f;
-            durationTime = 2.0f;
-            Tip.GetComponent<Text>().color = new Color(actualCol.r, actualCol.g, actualCol.b, 0);
-            while (elapsedTime < durationTime)
-            {
-                elapsedTime += Time.deltaTime;
-                yield return null;
-                if (!Tip.activeSelf) yield break;
-            }
+            yield return TipColorChange(actualCol, 0, 1);
+            if (!Tip.activeSelf) yield break;
+
+            yield return TipColorChange(actualCol, 1, 0);
+            if (!Tip.activeSelf) yield break;
         } 
     }
-    private IEnumerator RotateCard(GameObject card)
+    private IEnumerator TipColorChange(Color actualCol, int from = 0, int to = 0)
     {
         float elapsedTime = 0f;
-        float durationTime = 0.75f / 2;
+        float durationTime = 1.5f;
         while (elapsedTime < durationTime)
         {
             float t = elapsedTime / durationTime;
-
-            card.transform.eulerAngles = new Vector3(0, Mathf.LerpAngle(0, 90, t), 0);
-
+            Tip.GetComponent<Text>().color = new Color(actualCol.r, actualCol.g, actualCol.b, Mathf.Lerp(from, to, t));
             elapsedTime += Time.deltaTime;
             yield return null;
+            if (!Tip.activeSelf) yield break;
         }
-        elapsedTime = 0f;
+        Tip.GetComponent<Text>().color = new Color(actualCol.r, actualCol.g, actualCol.b, to);
+        yield return new WaitForSeconds(2.0f);
+    }
+    private IEnumerator RotateCard(GameObject card)
+    {
+        yield return PerformSigleRotation(card, 0, 90);
+
         int randInd = Random.Range(0, faces.Count());
         int rand = faces[randInd];
         card.GetComponent<Image>().sprite = CardFaces[rand];
         faces.RemoveAt(randInd);
+
+        yield return PerformSigleRotation(card, 90, 0);
+    }
+    private IEnumerator PerformSigleRotation(GameObject card, int fromAngle = 0, int toAngle = 0)
+    {
+        float elapsedTime = 0f;
+        float durationTime = 0.75f / 2;
+
         while (elapsedTime < durationTime)
         {
             float t = elapsedTime / durationTime;
 
-            card.transform.eulerAngles = new Vector3(0, Mathf.LerpAngle(90, 0, t), 0);
+            card.transform.eulerAngles = new Vector3(0, Mathf.LerpAngle(fromAngle, toAngle, t), 0);
 
-            elapsedTime += Time.deltaTime;
+            elapsedTime += Time.unscaledDeltaTime;
             yield return null;
         }
+        card.transform.eulerAngles = new Vector3(0, toAngle, 0);
     }
-
 }

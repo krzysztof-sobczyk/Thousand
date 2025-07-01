@@ -27,8 +27,9 @@ public class Exchanging : MonoBehaviour
     {
         currentBidText.text = currentBid.ToString();
     }
-    private IEnumerator ColorChange(Text textCol, Color endCol)
+    private IEnumerator ColorChange(Text textCol, Color endCol, bool isRunning = false)
     {
+        if (isRunning) yield break;
         textCol.color = Color.red;
         float elapsedTime = 0f;
         float durationTime = 1.5f;
@@ -67,20 +68,18 @@ public class Exchanging : MonoBehaviour
         if (bid % 10 != 0)
         {
             input.text = ((bid + 5) / 10 * 10).ToString();
-            valChanged = true;
             StartCoroutine(ColorChange(BidInput.transform.GetChild(2).gameObject.GetComponent<Text>(), Color.black));
+            valChanged = true;
         }
         if (bid > 350)
         {
             input.text = "350";
-            if (!valChanged)
-                StartCoroutine(ColorChange(BidInput.transform.GetChild(2).gameObject.GetComponent<Text>(), Color.black));
+            StartCoroutine(ColorChange(BidInput.transform.GetChild(2).gameObject.GetComponent<Text>(), Color.black, valChanged));
         }
         else if (bid < startBid)
         {
             input.text = (startBid).ToString();
-            if (!valChanged)
-                StartCoroutine(ColorChange(BidInput.transform.GetChild(2).gameObject.GetComponent<Text>(), Color.black));
+            StartCoroutine(ColorChange(BidInput.transform.GetChild(2).gameObject.GetComponent<Text>(), Color.black, valChanged));
         }
         else if (!valChanged)
         {
