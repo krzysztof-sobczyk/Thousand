@@ -9,7 +9,7 @@ Developed as a personal project to improve Unity skills and learn game architect
 
 ## Features
 - Turn-based mechanics
-- Custom UI and graphics
+- Custom UI and graphics (except cards)
 - Custom card animations
 - Simple enemy logic (AI turns)
 - Cards playing system
@@ -29,8 +29,11 @@ All rights reserved © 2025 Krzysztof Sobczyk.
 Please do not reuse or distribute without permission.
 
 ## Inspiration & Credits
-Cards graphics: [Playing Cards](https://opengameart.org/content/playing-cards-vector-png)\
-Cards back: [Colorful Poker Card Back](https://opengameart.org/content/colorful-poker-card-back)
+Cards graphics: [Playing Cards](https://opengameart.org/content/playing-cards-vector-png) (CC0 license)\
+Modified version of "Colorful Poker Card Back" by jeffshee: \
+Original: [Colorful Poker Card Back](https://opengameart.org/content/colorful-poker-card-back) \
+License: [CC BY 3.0](https://creativecommons.org/licenses/by/3.0)
+
 
 ## About the Author
 Developed by Krzysztof Sobczyk, Unity and C# enthusiast focused on developing small indie-style games and learning by doing.
