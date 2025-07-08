@@ -18,7 +18,7 @@ Developed as a personal project to improve Unity skills and learn game architect
 - Engine: Unity
 - Language: C#
 - IDE: Visual Studio 2022
-- Platform: Windows (can be exported to Android)
+- Platform: developed for Android (also playable on Windows)
 
 ## Screenshots
 ![Main menu](screenshots/menu.png) ![Gameplay01](screenshots/gameplay01.png) ![Gameplay02](screenshots/gameplay02.png)
@@ -27,6 +27,10 @@ Developed as a personal project to improve Unity skills and learn game architect
 This project is shared for demonstration and educational purposes only.
 All rights reserved © 2025 Krzysztof Sobczyk.
 Please do not reuse or distribute without permission.
+
+## Inspiration & Credits
+Cards graphics: [Playing Cards](https://opengameart.org/content/playing-cards-vector-png)\
+Cards back: [Colorful Poker Card Back](https://opengameart.org/content/colorful-poker-card-back)
 
 ## About the Author
 Developed by Krzysztof Sobczyk, Unity and C# enthusiast focused on developing small indie-style games and learning by doing.
