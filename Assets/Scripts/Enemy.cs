@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Enemy : MonoBehaviour
+public class Enemy : MonoBehaviour, IEnemyData
 {
     private bool exited = false;
     public bool hasCard = false;
@@ -15,6 +15,8 @@ public class Enemy : MonoBehaviour
     public int maxBid = -1;
     public int[] marriagesSuits;
     public int[] alone10;
+    int[] IEnemyData.alone10 => alone10;
+    int[] IEnemyData.marriagesSuits => marriagesSuits;
     public int marriagesCount = 0;
     public GameObject[] cardsToGive;
     [SerializeField] GameObject[] BidImages;

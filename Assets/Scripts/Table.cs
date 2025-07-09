@@ -1304,9 +1304,26 @@ public class Table : MonoBehaviour
         if (actualBid + 10 <= thousand.players[enemy].GetComponent<Enemy>().maxBid) return actualBid + 10;
         else return 0;
     }
+    static GameObject[,] SetSortedCards(List<GameObject> enemyCards)
+    {
+        GameObject[,] sortedCards = new GameObject[6, 4]
+        {
+                { null, null, null, null },
+                { null, null, null, null },
+                { null, null, null, null },
+                { null, null, null, null },
+                { null, null, null, null },
+                { null, null, null, null }
+        };
+        foreach (GameObject card in enemyCards)
+        {
+            sortedCards[card.GetComponent<Selectable2>().value, card.GetComponent<Selectable2>().suit] = card;
+        }
+
+        return sortedCards;
+    }
     private GameObject PlayLowestCardFromRandomSuit(List<GameObject> enemyCards, int enemy)
     {
-        //play lowest card from random suit
         int minNumber = 6;
         List<GameObject> minCards = new();
 
@@ -1322,156 +1339,69 @@ public class Table : MonoBehaviour
             else if (cardVal == minNumber) minCards.Add(card);
         }
         GameObject choosenCard = minCards[Random.Range(0, minCards.Count)];
+        GameObject[,] sortedCards = SetSortedCards(enemyCards);
 
-        GameObject[,] sortedCards = new GameObject[6, 4]
-        {
-            { null, null, null, null },
-            { null, null, null, null },
-            { null, null, null, null },
-            { null, null, null, null },
-            { null, null, null, null },
-            { null, null, null, null }
-        };
-        foreach (GameObject card in enemyCards)
-        {
-            sortedCards[card.GetComponent<Selectable2>().value, card.GetComponent<Selectable2>().suit] = card;
-        }
-
+        GameObject enemyPlayer = thousand.players[enemy];
+        IEnemyData chosenComponent;
         if (enemy <= 3)
         {
-            if (thousand.players[enemy].GetComponent<Enemy>().alone10[choosenCard.GetComponent<Selectable2>().suit] == 1)
-            {
-                int prevsuit = choosenCard.GetComponent<Selectable2>().suit;
-                print("trying not to give alone 10 1");
-                for (int i = 0; i < 5; i++) // not 6, because it is not worthed to give ace
-                {
-                    for (int j = 3; j >= 0; j--)
-                    {
-                        if (j == prevsuit) continue;
-                        if (sortedCards[i, j] != null)
-                        {
-                            choosenCard = sortedCards[i, j];
-                            // if it is another alone 10
-                            if (thousand.players[enemy].GetComponent<Enemy>().alone10[choosenCard.GetComponent<Selectable2>().suit] == 1)
-                            {
-                                print("trying not to give alone 10 1-1");
-                                for (int k = i; k < 5; k++) // not 6, because it is not worthed to give ace
-                                {
-                                    for (int l = 3; l >= 0; l--)
-                                    {
-                                        if (l == choosenCard.GetComponent<Selectable2>().suit || l == prevsuit) continue;
-                                        if (sortedCards[k, l] != null)
-                                        {
-                                            choosenCard = sortedCards[k, l];
-                                            k = 4;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                            i = 4;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if ((choosenCard.GetComponent<Selectable2>().value == 2 || choosenCard.GetComponent<Selectable2>().value == 3) && thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[choosenCard.GetComponent<Selectable2>().suit] > 0)
-            {
-                print("trying not to give marriage1");
-                for (int i = 0; i < 5; i++) // not 6, because it is not worthed to give ace
-                {
-                    for (int j = 3; j >= 0; j--)
-                    {
-                        if (i == 2 && j == choosenCard.GetComponent<Selectable2>().suit) continue;
-                        if (i == 3 && j == choosenCard.GetComponent<Selectable2>().suit) continue;
-                        if (sortedCards[i, j] != null)
-                        {
-                            choosenCard = sortedCards[i, j];
-                            i = 4;
-                            break;
-                        }
-                    }
-                }
-            }
+            chosenComponent = enemyPlayer.GetComponent<Enemy>();
         }
         else // simulation
         {
-            if (thousand.players[enemy].GetComponent<Simulated>().alone10[choosenCard.GetComponent<Selectable2>().suit] == 1)
+            chosenComponent = enemyPlayer.GetComponent<Simulated>();
+        }
+        return TryToAvoidGiving10orMarriage(chosenComponent, choosenCard, sortedCards);
+    }
+    private GameObject TryToAvoidGiving10orMarriage(IEnemyData enemyData, GameObject choosenCard, GameObject[,] sortedCards, int tryCount = 0)
+    {
+        if (tryCount >= 2) return choosenCard;
+        int currentSuit = choosenCard.GetComponent<Selectable2>().suit;
+        if (enemyData.alone10[currentSuit] == 1)
+        {
+            //print("trying not to give alone 10");
+            for (int i = 0; i < 5; i++) // not 6, because it is not worth giving ace
             {
-                int prevsuit = choosenCard.GetComponent<Selectable2>().suit;
-                print("trying not to give alone 10 1");
-                for (int i = 0; i < 5; i++) // not 6, because it is not worthed to give ace
+                for (int j = 3; j >= 0; j--)
                 {
-                    for (int j = 3; j >= 0; j--)
+                    if (j == currentSuit) continue;
+                    if (sortedCards[i, j] != null)
                     {
-                        if (j == prevsuit) continue;
-                        if (sortedCards[i, j] != null)
-                        {
-                            choosenCard = sortedCards[i, j];
-                            // if it is another alone 10
-                            if (thousand.players[enemy].GetComponent<Simulated>().alone10[choosenCard.GetComponent<Selectable2>().suit] == 1)
-                            {
-                                print("trying not to give alone 10 1-1");
-                                for (int k = i; k < 5; k++) // not 6, because it is not worthed to give ace
-                                {
-                                    for (int l = 3; l >= 0; l--)
-                                    {
-                                        if (l == choosenCard.GetComponent<Selectable2>().suit || l == prevsuit) continue;
-                                        if (sortedCards[k, l] != null)
-                                        {
-                                            choosenCard = sortedCards[k, l];
-                                            k = 4;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                            i = 4;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if ((choosenCard.GetComponent<Selectable2>().value == 2 || choosenCard.GetComponent<Selectable2>().value == 3) && thousand.players[enemy].GetComponent<Simulated>().marriagesSuits[choosenCard.GetComponent<Selectable2>().suit] > 0)
-            {
-                print("trying not to give marriage1");
-                for (int i = 0; i < 5; i++) // not 6, because it is not worthed to give ace
-                {
-                    for (int j = 3; j >= 0; j--)
-                    {
-                        if (i == 2 && j == choosenCard.GetComponent<Selectable2>().suit) continue;
-                        if (i == 3 && j == choosenCard.GetComponent<Selectable2>().suit) continue;
-                        if (sortedCards[i, j] != null)
-                        {
-                            choosenCard = sortedCards[i, j];
-                            i = 4;
-                            break;
-                        }
+                        choosenCard = sortedCards[i, j];
+                        // if it is another alone 10 try again
+                        TryToAvoidGiving10orMarriage(enemyData, choosenCard, sortedCards, ++tryCount);
+                        i = 5;
+                        break;
                     }
                 }
             }
         }
+
+        currentSuit = choosenCard.GetComponent<Selectable2>().suit;
+        int currentValue = choosenCard.GetComponent<Selectable2>().value;
+        if ((currentValue == 2 || currentValue == 3) && enemyData.marriagesSuits[currentSuit] > 0)
+        {
+            //print("trying not to give marriage1");
+            for (int i = 0; i < 5; i++) // not 6, because it is not worth giving ace
+            {
+                for (int j = 3; j >= 0; j--)
+                {
+                    if (i == 2 && j == currentSuit) continue;
+                    if (i == 3 && j == currentSuit) continue;
+                    if (sortedCards[i, j] != null)
+                    {
+                        choosenCard = sortedCards[i, j];
+                        return choosenCard;
+                    }
+                }
+            }
+        }
+
         return choosenCard;
     }
     private GameObject PlayMinimalGreater(List<GameObject> enemyCards, int suit, int value, int enemy)
     {
-        GameObject[,] sortedCards = new GameObject[6, 4]
-        {
-            { null, null, null, null },
-            { null, null, null, null },
-            { null, null, null, null },
-            { null, null, null, null },
-            { null, null, null, null },
-            { null, null, null, null }
-        };
-        foreach (GameObject card in enemyCards)
-        {
-            sortedCards[card.GetComponent<Selectable2>().value, card.GetComponent<Selectable2>().suit] = card;
-        }
+        GameObject[,] sortedCards = SetSortedCards(enemyCards);
         GameObject choosenCard = null;
         GameObject temp;
         int minNumber = 6;
