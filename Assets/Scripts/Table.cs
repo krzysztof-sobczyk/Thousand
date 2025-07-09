@@ -1353,10 +1353,10 @@ public class Table : MonoBehaviour
         }
         return TryToAvoidGiving10orMarriage(chosenComponent, choosenCard, sortedCards);
     }
-    private GameObject TryToAvoidGiving10orMarriage(IEnemyData enemyData, GameObject choosenCard, GameObject[,] sortedCards, int tryCount = 0)
+    private GameObject TryToAvoidGiving10orMarriage(IEnemyData enemyData, GameObject chosenCard, GameObject[,] sortedCards, int tryCount = 0)
     {
-        if (tryCount >= 2) return choosenCard;
-        int currentSuit = choosenCard.GetComponent<Selectable2>().suit;
+        if (tryCount >= 2) return chosenCard;
+        int currentSuit = chosenCard.GetComponent<Selectable2>().suit;
         if (enemyData.alone10[currentSuit] == 1)
         {
             //print("trying not to give alone 10");
@@ -1367,9 +1367,9 @@ public class Table : MonoBehaviour
                     if (j == currentSuit) continue;
                     if (sortedCards[i, j] != null)
                     {
-                        choosenCard = sortedCards[i, j];
+                        chosenCard = sortedCards[i, j];
                         // if it is another alone 10 try again
-                        TryToAvoidGiving10orMarriage(enemyData, choosenCard, sortedCards, ++tryCount);
+                        TryToAvoidGiving10orMarriage(enemyData, chosenCard, sortedCards, ++tryCount);
                         i = 5;
                         break;
                     }
@@ -1377,8 +1377,8 @@ public class Table : MonoBehaviour
             }
         }
 
-        currentSuit = choosenCard.GetComponent<Selectable2>().suit;
-        int currentValue = choosenCard.GetComponent<Selectable2>().value;
+        currentSuit = chosenCard.GetComponent<Selectable2>().suit;
+        int currentValue = chosenCard.GetComponent<Selectable2>().value;
         if ((currentValue == 2 || currentValue == 3) && enemyData.marriagesSuits[currentSuit] > 0)
         {
             //print("trying not to give marriage1");
@@ -1390,61 +1390,56 @@ public class Table : MonoBehaviour
                     if (i == 3 && j == currentSuit) continue;
                     if (sortedCards[i, j] != null)
                     {
-                        choosenCard = sortedCards[i, j];
-                        return choosenCard;
+                        chosenCard = sortedCards[i, j];
+                        return chosenCard;
                     }
                 }
             }
         }
 
-        return choosenCard;
+        return chosenCard;
     }
     private GameObject PlayMinimalGreater(List<GameObject> enemyCards, int suit, int value, int enemy)
     {
-        GameObject[,] sortedCards = SetSortedCards(enemyCards);
-        GameObject choosenCard = null;
-        GameObject temp;
+        GameObject chosenCard = null;
         int minNumber = 6;
         foreach (GameObject card in enemyCards)
         {
-            if (card.GetComponent<Selectable2>().value > value && card.GetComponent<Selectable2>().suit == suit)
+            int cardValue = card.GetComponent<Selectable2>().value;
+            if (cardValue > value && card.GetComponent<Selectable2>().suit == suit)
             {
-                if (card.GetComponent<Selectable2>().value < minNumber)
+                if (cardValue < minNumber)
                 {
-                    minNumber = card.GetComponent<Selectable2>().value;
-                    choosenCard = card;
-                    if (enemy <= 3)
-                    {
-                        // if selected card is from your marriage
-                        if ((minNumber == 2 || minNumber == 3) && thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[card.GetComponent<Selectable2>().suit] > 0)
-                        {
-                            print("trying not to give marriage2");
-                            //try to give something else
-                            List<GameObject> newCards = new(enemyCards);
-                            newCards.Remove(sortedCards[2, card.GetComponent<Selectable2>().suit]);
-                            newCards.Remove(sortedCards[3, card.GetComponent<Selectable2>().suit]);
-                            temp = PlayMinimalGreater(newCards, suit, value, enemy);
-                            if (temp != null) choosenCard = temp;
-                        }
-                    }
-                    else // simulation
-                    {
-                        // if selected card is from your marriage
-                        if ((minNumber == 2 || minNumber == 3) && thousand.players[enemy].GetComponent<Simulated>().marriagesSuits[card.GetComponent<Selectable2>().suit] > 0)
-                        {
-                            print("trying not to give marriage2");
-                            //try to give something else
-                            List<GameObject> newCards = new(enemyCards);
-                            newCards.Remove(sortedCards[2, card.GetComponent<Selectable2>().suit]);
-                            newCards.Remove(sortedCards[3, card.GetComponent<Selectable2>().suit]);
-                            temp = PlayMinimalGreater(newCards, suit, value, enemy);
-                            if (temp != null) choosenCard = temp;
-                        }
-                    }
+                    minNumber = cardValue;
+                    chosenCard = card;
+
+                    IEnemyData enemyData;
+                    if (enemy <= 3) enemyData = thousand.players[enemy].GetComponent<Enemy>();
+                    else enemyData = thousand.players[enemy].GetComponent<Simulated>();
+
+                    chosenCard = TryToAvoidGivingMarriage(enemyData, enemyCards, value, enemy, chosenCard, minNumber);
                 }
             }
         }
-        return choosenCard;
+        return chosenCard;
+
+        GameObject TryToAvoidGivingMarriage(IEnemyData enemyData, List<GameObject> enemyCards, int value, int enemy, GameObject choosenCard, int minNumber)
+        {
+            // if selected card is from your marriage
+            int newSuit = choosenCard.GetComponent<Selectable2>().suit;
+            if ((minNumber == 2 || minNumber == 3) && enemyData.marriagesSuits[newSuit] > 0)
+            {
+                //try to give something else
+                List<GameObject> newCards = new(enemyCards);
+                GameObject[,] sortedCards = SetSortedCards(enemyCards);
+                newCards.Remove(sortedCards[2, newSuit]);
+                newCards.Remove(sortedCards[3, newSuit]);
+                GameObject temp = PlayMinimalGreater(newCards, newSuit, value, enemy);
+                if (temp != null) choosenCard = temp;
+            }
+
+            return choosenCard;
+        }
     }
     private GameObject ThereIsNoMarriage(List<GameObject> enemyCards, int enemy)
     {
