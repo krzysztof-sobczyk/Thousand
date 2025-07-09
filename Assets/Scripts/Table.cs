@@ -939,14 +939,9 @@ public class Table : MonoBehaviour
         // add additional points to safetogive if card is from your marriage
         foreach (GameObject card in enemyCards)
         {
-            if (card.GetComponent<Selectable2>().suit == 0 && thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[0] == 1)
-                card.GetComponent<Selectable2>().safeToGive++;
-            else if(card.GetComponent<Selectable2>().suit == 1 && thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[1] == 1)
-                card.GetComponent<Selectable2>().safeToGive++;
-            else if (card.GetComponent<Selectable2>().suit == 2 && thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[2] == 1)
-                card.GetComponent<Selectable2>().safeToGive++;
-            else if (card.GetComponent<Selectable2>().suit == 3 && thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[3] == 1)
-                card.GetComponent<Selectable2>().safeToGive++;
+            int cardSuit = card.GetComponent<Selectable2>().suit;
+            Enemy currentEnemy = thousand.players[enemy].GetComponent<Enemy>();
+            if (currentEnemy.marriagesSuits[cardSuit] == 1) card.GetComponent<Selectable2>().safeToGive++;
         }
         int maxScore = 0;
         for (int i = 0; i < 4; i++)
@@ -1060,7 +1055,6 @@ public class Table : MonoBehaviour
         for (int i = 0; i < cardsToGive.Count; i++)
         {
             //if possible avoid giving kings and queens
-            //print(cardsToGive[i][0].name + " " + cardsToGive[i][0].GetComponent<Selectable2>().safeToGive + " " + cardsToGive[i][1].name + " " + cardsToGive[i][1].GetComponent<Selectable2>().safeToGive);
             safeToGivePoints = cardsToGive[i][0].GetComponent<Selectable2>().safeToGive + cardsToGive[i][1].GetComponent<Selectable2>().safeToGive;
             if (safeToGivePoints < minPoints)
             {
@@ -1443,31 +1437,14 @@ public class Table : MonoBehaviour
     }
     private GameObject ThereIsNoMarriage(List<GameObject> enemyCards, int enemy)
     {
-        // there is no marriage
-        // update greatest cards in the game
-        int[] greatestCard = { 5, 5, 5, 5 };
-        List<int>[] values = new List<int>[4] { new(), new(), new(), new() };
-        foreach (GameObject card in removedCards)
-        {
-            values[card.GetComponent<Selectable2>().suit].Add(card.GetComponent<Selectable2>().value);
-        }
-        for (int i = 0; i < 4; i++)
-        {
-            values[i].Sort();
-            values[i].Reverse();
-            foreach (int val in values[i])
-            {
-                if (val == greatestCard[i]) greatestCard[i]--;
-            }
-        }
+        int[] greatestGameCards = SetGreatestCards();
         // if you have any then play greatest cards that are in the game
-        // make list with the greatest cards
         List<GameObject> greatestCards = new();
         for (int i = 0; i < 4; i++)
         {
             foreach (GameObject card in enemyCards)
             {
-                if (card.GetComponent<Selectable2>().suit == i && card.GetComponent<Selectable2>().value == greatestCard[i])
+                if (card.GetComponent<Selectable2>().suit == i && card.GetComponent<Selectable2>().value == greatestGameCards[i])
                     greatestCards.Add(card);
             }
         }
@@ -1515,64 +1492,51 @@ public class Table : MonoBehaviour
                 return PlayLowestCardFromRandomSuit(enemyCards, enemy);
             }
         }
+
+        int[] SetGreatestCards()
+        {
+            // set greatest cards in the game
+            int[] greatestCard = { 5, 5, 5, 5 };
+            List<int>[] values = new List<int>[4] { new(), new(), new(), new() };
+            foreach (GameObject card in removedCards)
+            {
+                values[card.GetComponent<Selectable2>().suit].Add(card.GetComponent<Selectable2>().value);
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                values[i].Sort();
+                values[i].Reverse();
+                foreach (int val in values[i])
+                {
+                    if (val == greatestCard[i]) greatestCard[i]--;
+                }
+            }
+
+            return greatestCard;
+        }
     }
     private GameObject ChooseBestMarriage(List<GameObject> possibleMarriages, int enemy)
     {
         //choose the best marriage
         Dictionary<string, GameObject> marriages = new();
         foreach (GameObject card in possibleMarriages) marriages.Add(card.name, card);
-        foreach (GameObject card in possibleMarriages) print(card.name);
-        if (marriages.ContainsKey("HQ") || marriages.ContainsKey("HQ(Clone)"))
+        if (marriages.ContainsKey("HQ") || marriages.ContainsKey("HQ(Clone)")) return SetAndReturn("HQ", 0, enemy, marriages);
+        else if (marriages.ContainsKey("DQ") || marriages.ContainsKey("DQ(Clone)")) return SetAndReturn("DQ", 2, enemy, marriages);
+        else if (marriages.ContainsKey("CQ") || marriages.ContainsKey("CQ(Clone)")) return SetAndReturn("CQ", 1, enemy, marriages);
+        else return SetAndReturn("SQ", 3, enemy, marriages);
+
+        GameObject SetAndReturn(string name, int number ,int enemy, Dictionary<string, GameObject> marriages)
         {
             if (enemy <= 3)
             {
-                DeclareMarriage(marriages["HQ"], enemy);
-                return marriages["HQ"];
-            }  
-            else
-            {
-                marriageNumber = 0;
-                return marriages["HQ(Clone)"];
-            }
-            
-        }
-        else if (marriages.ContainsKey("DQ") || marriages.ContainsKey("DQ(Clone)"))
-        {
-            if (enemy <= 3)
-            {
-                DeclareMarriage(marriages["DQ"], enemy);
-                return marriages["DQ"];
+                DeclareMarriage(marriages[name], enemy);
+                return marriages[name];
             }
             else
             {
-                marriageNumber = 2;
-                return marriages["DQ(Clone)"];
-            }
-        }
-        else if (marriages.ContainsKey("CQ") || marriages.ContainsKey("CQ(Clone)"))
-        {
-            if (enemy <= 3)
-            {
-                DeclareMarriage(marriages["CQ"], enemy);
-                return marriages["CQ"];
-            }
-            else
-            {
-                marriageNumber = 1;
-                return marriages["CQ(Clone)"];
-            }
-        }
-        else 
-        {
-            if (enemy <= 3)
-            {
-                DeclareMarriage(marriages["SQ"], enemy);
-                return marriages["SQ"];
-            }
-            else
-            {
-                marriageNumber = 1;
-                return marriages["SQ(Clone)"];
+                marriageNumber = number;
+                string clone = name + "(Clone)";
+                return marriages[clone];
             }
         }
     }
