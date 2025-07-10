@@ -520,10 +520,10 @@ public class Table : MonoBehaviour
         if (val > 120 && thousand.players[enemy].GetComponent<Enemy>().marriagesCount == 0) val = 120;
         return val;
     }
-    public int SetMaxBid(int enemy) // before getting the musk
+    public int SetMaxBid(int enemy, List<GameObject> enemyCards = null, bool tryBiddingMore = true, bool isASimulation = false) // before getting the musk
     {
         int maxBid;
-        List<GameObject> enemyCards = SetEnemyCards(enemy);
+        enemyCards ??= SetEnemyCards(enemy);
         GameObject[,] sortedCards = SetSortedCardsHorizontal(enemyCards);
         List<int> cardValues = new List<int>
         { 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 10, 10, 10, 10, 11, 11, 11, 11};
@@ -547,8 +547,7 @@ public class Table : MonoBehaviour
             if (sortedCards[i, 2] != null && sortedCards[i, 3] == null) halves.Add(sortedCards[i, 2]);
             else if (sortedCards[i, 2] == null && sortedCards[i, 3] != null) halves.Add(sortedCards[i, 3]);
         }
-        thousand.players[enemy].GetComponent<Enemy>().marriagesCount = marriages;
-        //print("halves count: " + halves.Count);
+        if (!isASimulation) thousand.players[enemy].GetComponent<Enemy>().marriagesCount = marriages;
         if (halves.Count >= 1) // it might be worth risking
         {
             // add minimal marriage points
@@ -584,35 +583,29 @@ public class Table : MonoBehaviour
         }
         for (int i = 0; i < cardsYouCanTake; i++)
         {
-            // one value
-            int val = cardValues.Min();
-            yourPoints += val;
-            cardValues.Remove(val);
+            // first value
+            yourPoints = AddValue(cardValues, yourPoints);
             if (halfPoints == 1)
             {
                 halfPoints = 0;
                 continue;
             }
             // second value
-            val = cardValues.Min();
-            yourPoints += val;
-            cardValues.Remove(val);
+            yourPoints = AddValue(cardValues, yourPoints);
         }
         if (yourPoints > 120) yourPoints = 120;
         maxBid = yourPoints + pointsFromMarriages + pointsFromHalves;
-        //print(cardsYouCanTake + " speculatet result = " + 15*cardsYouCanTake + " your points: " + yourPoints);
-        //print("maxbid: " + maxBid);
-        //print("old maxbid: " + (15 * cardsYouCanTake + pointsFromMarriages + pointsFromHalves));
 
-        int gameMode = Random.Range(0, 2); // from 0 to 1
-        if (gameMode == 0)
+        if (tryBiddingMore && Random.Range(0, 2) == 0) return (((maxBid + 5) / 10) * 10);
+        
+        return ((maxBid / 10) * 10);
+
+        static int AddValue(List<int> cardValues, int yourPoints)
         {
-            //print("I'll try my luck");
-            return (((maxBid + 5) / 10) * 10);
-        }
-        else
-        {
-            return ((maxBid / 10) * 10);
+            int val = cardValues.Min();
+            yourPoints += val;
+            cardValues.Remove(val);
+            return yourPoints;
         }
     }
     private List<GameObject> SetEnemyCards(int enemy)
@@ -639,10 +632,8 @@ public class Table : MonoBehaviour
         {
             foreach (GameObject card in enemyCards)
             {
-                if (card.GetComponent<Selectable2>().suit == i)
-                {
-                    sortedCards[i, card.GetComponent<Selectable2>().value] = card;
-                }
+                Selectable2 selectable = card.GetComponent<Selectable2>();
+                if (selectable.suit == i) sortedCards[i, selectable.value] = card;
             }
         }
 
@@ -712,118 +703,32 @@ public class Table : MonoBehaviour
         int maxBid;
         List<GameObject> enemyCards = SetEnemyCards(enemy);
         GameObject[,] sortedCards = SetSortedCardsHorizontal(enemyCards);
-        List<int> cardValues = new List<int>
-        { 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 10, 10, 10, 10, 11, 11, 11, 11};
         int sumOfBids = 0;
         int howMany = 0;
         for (int i = 0; i < 4; i++)
         {
             for (int j = 0; j < 6; j++)
             {
-                if (sortedCards[i, j] == null)
-                {
-                    List<GameObject> newList = new(enemyCards);
-                    string objName = suitsNames[i] + valuesNames[j];
-                    GameObject obj = GameObject.Find(objName);
-                    newList.Add(obj);
-                    int newBid = FindMaxBid2(newList);
-                    //print(newBid);
-                    sumOfBids += newBid;
-                    howMany++;
-                }
+                if (sortedCards[i, j] != null) continue;
+                List<GameObject> newList = new(enemyCards);
+                string objName = suitsNames[i] + valuesNames[j];
+                GameObject obj = GameObject.Find(objName);
+                newList.Add(obj);
+                int newBid = SetMaxBid(0, newList, false, true);
+                sumOfBids += newBid;
+                howMany++;
             }
         }
         maxBid = Mathf.RoundToInt(sumOfBids / howMany);
         return maxBid;
     }
-    private int FindMaxBid2(List<GameObject> enemyCards)
-    {
-        int maxBid;
-        GameObject[,] sortedCards = SetSortedCardsHorizontal(enemyCards);
-        List<int> cardValues = new List<int>
-        { 0, 0, 0, 0, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 10, 10, 10, 10, 11, 11, 11, 11};
-        // count how many cards you can take
-        int yourPoints = 0;
-        int cardsYouCanTake = 0;
-        int pointsFromMarriages = 0;
-        int pointsFromHalves = 0;
-        int[] howManyCards = new int[4];
-        int halfPoints = 0;
-        int marriages = 0;
-        List<GameObject> halves = new();
-        for (int i = 0; i < 4; i++)
-        {
-            int cardsFromI = SetYourPoits(sortedCards, cardValues, ref yourPoints, howManyCards, ref halfPoints, i);
-
-            cardsYouCanTake += cardsFromI;
-
-            AddPointsFromMarriages(sortedCards, ref pointsFromMarriages, howManyCards, ref marriages, i);
-            // halves
-            if (sortedCards[i, 2] != null && sortedCards[i, 3] == null) halves.Add(sortedCards[i, 2]);
-            else if (sortedCards[i, 2] == null && sortedCards[i, 3] != null) halves.Add(sortedCards[i, 3]);
-        }
-        if (halves.Count >= 1) // it might be worth risking
-        {
-            // add minimal marriage points
-            int minPoints = 120;
-            int minSuit = -1;
-            foreach (GameObject h in halves)
-            {
-                int suit = h.GetComponent<Selectable2>().suit;
-                if (suit == 3 && minPoints > 40) { minPoints = 40; minSuit = 3; }
-                else if (suit == 1 && minPoints > 60) { minPoints = 60; minSuit = 1; }
-                else if (suit == 2 && minPoints > 80) { minPoints = 80; minSuit = 2; }
-                else if (suit == 0 && minPoints > 100) { minPoints = 100; minSuit = 0; }
-            }
-            if (halves.Count >= 3)
-                pointsFromHalves = minPoints;
-            else if (halves.Count == 2 && (minPoints >= 60 || howManyCards[minSuit] >= 4))
-                pointsFromHalves = minPoints;
-            else if (halves.Count == 1 && minPoints >= 80 && howManyCards[minSuit] >= 5)
-                pointsFromHalves = minPoints;
-        }
-        if (halfPoints == 2)
-        {
-            halfPoints = 0;
-            cardsYouCanTake--;
-        }
-        else if (halfPoints == 3)
-        {
-            halfPoints = 1;
-            cardsYouCanTake--;
-        }
-        for (int i = 0; i < cardsYouCanTake; i++)
-        {
-            // one value
-            int val = cardValues.Min();
-            yourPoints += val;
-            cardValues.Remove(val);
-            if (halfPoints == 1)
-            {
-                halfPoints = 0;
-                continue;
-            }
-            // second value
-            val = cardValues.Min();
-            yourPoints += val;
-            cardValues.Remove(val);
-        }
-        if (yourPoints > 120) yourPoints = 120;
-        maxBid = yourPoints + pointsFromMarriages + pointsFromHalves;
-        return ((maxBid / 10) * 10);
-    }
     public int SetNewMaxBid(int enemy) // after getting a musk
     {
-        List<GameObject> enemyCards = new();
+        List<GameObject> enemyCards = SetEnemyCards(enemy);
         List<GameObject[]> cardsToGive = new();
         List<GameObject[]> safeCardsToGive = new();
         int maxBid = 0;
         int maxSafeBid = 0;
-        foreach (Transform tran in thousand.players[enemy].transform)
-        {
-            GameObject card = tran.gameObject;
-            enemyCards.Add(card);
-        }
         for (int i = 0; i < enemyCards.Count; i++)
         {
             if (enemyCards[i].GetComponent<Selectable2>().value == 5) continue;
@@ -836,92 +741,78 @@ public class Table : MonoBehaviour
                 newList.Remove(enemyCards[i]); newList.Remove(enemyCards[j]);
 
                 int newMaxBid = FindMaxBid(newList);
-                //print(newMaxBid);
-                if (newMaxBid > maxBid)
-                {
-                    maxBid = newMaxBid;
-                    cardsToGive.Clear();
-                    cardsToGive.Add(new GameObject[2] { enemyCards[i], enemyCards[j] });
-                }
-                else if (newMaxBid == maxBid) 
-                { 
-                    cardsToGive.Add(new GameObject[2] { enemyCards[i], enemyCards[j] });
-                }
-                if (newMaxBid > maxSafeBid)
-                {
-                    if (enemyCards[i].GetComponent<Selectable2>().value != 2 && enemyCards[i].GetComponent<Selectable2>().value != 3 &&
-                        enemyCards[j].GetComponent<Selectable2>().value != 2 && enemyCards[j].GetComponent<Selectable2>().value != 3)
-                    {
-                        maxSafeBid = newMaxBid;
-                        safeCardsToGive.Clear();
-                        safeCardsToGive.Add(new GameObject[2] { enemyCards[i], enemyCards[j] });
-                    }
-                }
-                else if (newMaxBid == maxSafeBid)
-                {
-                    safeCardsToGive.Add(new GameObject[2] { enemyCards[i], enemyCards[j] });
-                }
+
+                maxBid = CompareMaxBid(enemyCards, ref cardsToGive, maxBid, i, j, newMaxBid);
+
+                int iCardValue = enemyCards[i].GetComponent<Selectable2>().value;
+                int jCardValue = enemyCards[j].GetComponent<Selectable2>().value;
+                bool safeCondition = (iCardValue != 2 && iCardValue != 3 && jCardValue != 2 && jCardValue != 3);
+                maxSafeBid = CompareMaxBid(enemyCards, ref safeCardsToGive, maxSafeBid, i, j, newMaxBid, safeCondition);
             }
         }
 
         // set marriagesSuits
         SetMarriagesSuits(enemy);
 
+        Enemy enemyComponent = thousand.players[enemy].GetComponent<Enemy>();
         // add additional points to safetogive if card is from your marriage
         foreach (GameObject card in enemyCards)
         {
             int cardSuit = card.GetComponent<Selectable2>().suit;
-            Enemy currentEnemy = thousand.players[enemy].GetComponent<Enemy>();
-            if (currentEnemy.marriagesSuits[cardSuit] == 1) card.GetComponent<Selectable2>().safeToGive++;
+            if (enemyComponent.marriagesSuits[cardSuit] == 1) card.GetComponent<Selectable2>().safeToGive++;
         }
         int maxScore = 0;
         for (int i = 0; i < 4; i++)
         {
-            if (thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[i] == 1 && i == 0) maxScore += 100;
+            if (enemyComponent.marriagesSuits[i] == 1 && i == 0) maxScore += 100;
         }
 
         // from list with maxBid choose the weakest cards to give
         //print("maxBid: " + maxBid + " maxSafeBid: " + maxSafeBid);
-        GameObject[] choosenCards = new GameObject[2];
+        GameObject[] chosenCards;
         if (maxSafeBid != 0 && maxSafeBid + 10 >= maxBid)
         {
-            choosenCards = ChooseCardsToGive(safeCardsToGive);
-            print("safe cards given");
+            chosenCards = ChooseCardsToGive(safeCardsToGive);
+            //print("safe cards given");
         }
         else
         {
-            choosenCards = ChooseCardsToGive(cardsToGive);
+            chosenCards = ChooseCardsToGive(cardsToGive);
         }
-        print(choosenCards[0].name + " " + choosenCards[1].name);
-        thousand.players[enemy].GetComponent<Enemy>().cardsToGive[0] = choosenCards[0];
-        thousand.players[enemy].GetComponent<Enemy>().cardsToGive[1] = choosenCards[1];
+        //print(chosenCards[0].name + " " + chosenCards[1].name);
+        thousand.players[enemy].GetComponent<Enemy>().cardsToGive[0] = chosenCards[0];
+        thousand.players[enemy].GetComponent<Enemy>().cardsToGive[1] = chosenCards[1];
 
         // simulate a game
-        if (enemy == 1) maxBid = SimulateAGame(choosenCards[0], choosenCards[1], enemy, enemyCards);
-        else maxBid = SimulateAGame(choosenCards[1], choosenCards[0], enemy, enemyCards);
+        if (enemy == 1) maxBid = SimulateAGame(chosenCards[0], chosenCards[1], enemy, enemyCards);
+        else maxBid = SimulateAGame(chosenCards[1], chosenCards[0], enemy, enemyCards);
 
         // if maxSafeBid != null && maxSafeBid + 10 >= maxBid
-        if (FindObjectOfType<Settings>().gamePoints[enemy] + thousand.bid >= 1000) maxBid = thousand.bid;
-        else if (FindObjectOfType<Settings>().gamePoints[enemy] + maxBid >= 1000) maxBid = 1000 - FindObjectOfType<Settings>().gamePoints[enemy];
-        print("is going to get: " + ((maxBid / 10) * 10));
+        int gamePoints = FindObjectOfType<Settings>().gamePoints[enemy];
+        if (gamePoints + thousand.bid >= 1000) maxBid = thousand.bid;
+        else if (gamePoints + maxBid >= 1000) maxBid = 1000 - gamePoints;
+        //print("is going to get: " + ((maxBid / 10) * 10));
         return ((maxBid / 10) * 10);
+
+        static int CompareMaxBid(List<GameObject> enemyCards, ref List<GameObject[]> cardsToGive, int maxBid, int i, int j, int newMaxBid, bool condition = true)
+        {
+            if (newMaxBid < maxBid) return maxBid;
+            if (newMaxBid > maxBid && condition)
+            {
+                maxBid = newMaxBid;
+                cardsToGive.Clear();
+            }
+
+            cardsToGive.Add(new GameObject[2] { enemyCards[i], enemyCards[j] });
+
+            return maxBid;
+        }
     }
     public void SetMarriagesSuits(int enemy)
     {
         //also set alone 10-s
-        List<GameObject> enemyCards = new();
-        foreach (Transform tran in thousand.players[enemy].transform)
-        {
-            GameObject card = tran.gameObject;
-            enemyCards.Add(card);
-        }
-        GameObject[,] sortedCards = new GameObject[4, 6]
-        {
-            { null, null, null, null, null, null },
-            { null, null, null, null, null, null },
-            { null, null, null, null, null, null },
-            { null, null, null, null, null, null }
-        };
+        List<GameObject> enemyCards = SetEnemyCards(enemy);
+        GameObject[,] sortedCards = SetSortedCardsHorizontal(enemyCards);
         int[] howManyCards = new int[4] { 0, 0, 0, 0 };
         for (int i = 0; i < 4; i++)
         {
@@ -929,7 +820,6 @@ public class Table : MonoBehaviour
             {
                 if (card.GetComponent<Selectable2>().suit == i)
                 {
-                    sortedCards[i, card.GetComponent<Selectable2>().value] = card;
                     howManyCards[i]++;
                 }
             }
