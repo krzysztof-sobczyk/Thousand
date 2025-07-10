@@ -70,9 +70,16 @@ public class Table : MonoBehaviour
     private void Start()
     {
         thousand = FindObjectOfType<Thousand>();
-        turnPointerPositions[0] = new Vector3(thousand.players[0].transform.localPosition.x, thousand.players[0].transform.localPosition.y + 200, thousand.players[0].transform.localPosition.z);
-        turnPointerPositions[1] = new Vector3(thousand.players[1].transform.localPosition.x + 200, thousand.players[1].transform.localPosition.y, thousand.players[1].transform.localPosition.z);
-        turnPointerPositions[3] = new Vector3(thousand.players[3].transform.localPosition.x - 200, thousand.players[3].transform.localPosition.y, thousand.players[3].transform.localPosition.z);
+        SetPointerPositions();
+    }
+    private void SetPointerPositions()
+    {
+        Vector3 player0Position = thousand.players[0].transform.position;
+        Vector3 player1Position = thousand.players[1].transform.position;
+        Vector3 player3Position = thousand.players[3].transform.position;
+        turnPointerPositions[0] = new Vector3(player0Position.x, player0Position.y + 200, player0Position.z);
+        turnPointerPositions[1] = new Vector3(player1Position.x + 200, player1Position.y, player1Position.z);
+        turnPointerPositions[3] = new Vector3(player3Position.x - 200, player3Position.y, player3Position.z);
     }
     private void OnTriggerEnter2D(Collider2D collision)
     {
@@ -146,29 +153,27 @@ public class Table : MonoBehaviour
     }
     private bool CheckIfCanBePlaced(GameObject card)
     {
-        int suit = card.GetComponent<Selectable2>().suit;
         if (cardsOnStack.Count == 0) return true;
         else
         {
-            GameObject prevCard = cardsOnStack[0];
-            int prevSuit = prevCard.GetComponent<Selectable2>().suit;
+            int suit = card.GetComponent<Selectable2>().suit;
+            int prevSuit = cardsOnStack[0].GetComponent<Selectable2>().suit;
             if (suit == prevSuit) return true;
-            else
-            {
-                bool playerHasNoPrevSuitCards = true;
-                bool playerHasNoMarriageCards = true;
-                for (int i = 0; i < thousand.players[turn].transform.childCount; i++)
-                {
-                    GameObject pCard = thousand.players[turn].transform.GetChild(i).gameObject;
-                    if (pCard.GetComponent<Selectable2>().suit == prevSuit) playerHasNoPrevSuitCards = false;
-                    if (pCard.GetComponent<Selectable2>().suit == marriageNumber) playerHasNoMarriageCards = false;
-                    if (!playerHasNoPrevSuitCards && !playerHasNoMarriageCards) break;
-                }
-                if (suit == marriageNumber && playerHasNoPrevSuitCards) return true;
-                else if (suit != marriageNumber && playerHasNoPrevSuitCards && playerHasNoMarriageCards) return true;
-            }
+
+            bool noPrevSuitCards = HasNoCardsOfSuit(prevSuit);
+            bool noMarriageCards = HasNoCardsOfSuit(marriageNumber);
+            if ((suit == marriageNumber && noPrevSuitCards) || (suit != marriageNumber && noPrevSuitCards && noMarriageCards)) return true;
         }
         return false;
+    }
+    private bool HasNoCardsOfSuit(int suitToCheck)
+    {
+        for (int i = 0; i < thousand.players[turn].transform.childCount; i++)
+        {
+            Selectable2 card = thousand.players[turn].transform.GetChild(i).GetComponent<Selectable2>();
+            if (card.suit ==  suitToCheck) return false;
+        }
+        return true;
     }
     private IEnumerator MoveCardToTheCentre(GameObject card)
     {
@@ -197,6 +202,7 @@ public class Table : MonoBehaviour
         }
         card.GetComponent<Draggable>().onTable = true;
         thousand.canDragCards = false;
+        // placed card was from marriage
         if (card.GetComponent<Selectable2>().value is 2 or 3 && CanDeclareMarriage(card, 0))
         {
             DeclareMarriage(card, 0, true);
@@ -210,14 +216,22 @@ public class Table : MonoBehaviour
         playerNumbers.Add(turn);
         StartCoroutine(MoveCardToTheCentre(card));
         thousand.MoveCardsAfterDragging();
+        //cards collecting
         if (cardsOnStack.Count == 3) StartCoroutine(CollectCards());
         if (!collectingCards)
         {
-            turn++;
-            if (turn == 2) turn = 3;
-            if (turn == 4) turn = 0;
+            SetNewTurn();
             StartCoroutine(TurnPointerMove(turn));
             HandleEnemies();
+        }
+
+        void SetNewTurn()
+        {
+            do
+            {
+                turn = (turn + 1) % 4;
+            }
+            while (turn == 2);
         }
     }
     public IEnumerator TurnPointerMove(int turn)
@@ -283,32 +297,7 @@ public class Table : MonoBehaviour
         gameIsEnding = true;
         TurnPointer.SetActive(false);
         MarriageImage.SetActive(false);
-        // 1) count points of every player's pile
-        int[] points = new int[4] { 0, 0, 0, 0 };
-        for (int i = 0; i < 4; i++)
-        {
-            if (i == 2) continue;
-            points[i] = CountPointsFromAPile(thousand.piles[i]);
-        }
-        // add points from marriages
-        for (int i = 0; i < 4; i++)
-        {
-            if (marriagesDeclared[i] == -1) continue;
-            if (i == 0) points[marriagesDeclared[i]] += 100;
-            else if (i == 1) points[marriagesDeclared[i]] += 60;
-            else if (i == 2) points[marriagesDeclared[i]] += 80;
-            else points[marriagesDeclared[i]] += 40;
-        }
-        // check if declarer got enough points
-        int pointsGotByDeclarer = points[declarerNumber];
-        if (points[declarerNumber] >= thousand.bid)
-        {
-            points[declarerNumber] = thousand.bid;
-        }
-        else
-        {
-            points[declarerNumber] = -1 * thousand.bid;
-        }
+        CalculatePoints(out int[] points, out int pointsGotByDeclarer);
         //show points
         PointsPanel.SetActive(true);
         int n;
@@ -331,6 +320,40 @@ public class Table : MonoBehaviour
         // 3) start a new game
         StartCoroutine(WaitForScoreboard(points[declarerNumber] > 0));
         marriagesDeclared = new int[4] { -1, -1, -1, -1 };
+
+        void CalculatePoints(out int[] points, out int pointsGotByDeclarer)
+        {
+            Dictionary<int, int> pointsForMarriages = new()
+            {
+                { 0, 100 },
+                { 1, 60 },
+                { 2, 80 },
+                { 3, 40 }
+            };
+            // 1) count points of every player's pile
+            points = new int[4] { 0, 0, 0, 0 };
+            for (int i = 0; i < 4; i++)
+            {
+                if (i == 2) continue;
+                points[i] = CountPointsFromAPile(thousand.piles[i]);
+            }
+            // add points from marriages
+            for (int i = 0; i < 4; i++)
+            {
+                if (marriagesDeclared[i] == -1) continue;
+                points[marriagesDeclared[i]] += pointsForMarriages[i];
+            }
+            // check if declarer got enough points
+            pointsGotByDeclarer = points[declarerNumber];
+            if (points[declarerNumber] >= thousand.bid)
+            {
+                points[declarerNumber] = thousand.bid;
+            }
+            else
+            {
+                points[declarerNumber] = -1 * thousand.bid;
+            }
+        }
     }
     private IEnumerator WaitForScoreboard(bool gotEnoughPoints)
     {
@@ -357,10 +380,8 @@ public class Table : MonoBehaviour
     {
         BidTexts[0].SetActive(true);
         BidTexts[1].SetActive(true);
-        BidTexts[0].GetComponent<Text>().text = "Declarer: ";
-        BidTexts[1].GetComponent<Text>().text = "Bid: ";
-        BidTexts[0].GetComponent<Text>().text += thousand.players[declarerNumber].name;
-        BidTexts[1].GetComponent<Text>().text += thousand.bid.ToString();
+        BidTexts[0].GetComponent<Text>().text = "Declarer: " + thousand.players[declarerNumber].name;
+        BidTexts[1].GetComponent<Text>().text = "Bid: " + thousand.bid.ToString();
     }
     private int WhoWon()
     {

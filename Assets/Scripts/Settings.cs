@@ -96,13 +96,6 @@ public class Settings : MonoBehaviour
     {
         Scoreboard scoreboard = FindObjectOfType<Scoreboard>();
         SceneManager.LoadScene("GameScene");
-        /*Thousand thousand = FindObjectOfType<Thousand>();
-        UpdateSprite[] cards = FindObjectsOfType<UpdateSprite>();
-        foreach (UpdateSprite card in cards)
-        {
-            Destroy(card.gameObject);
-        }
-        FindObjectOfType<Exchanging>().gameObject.SetActive(false);*/
     }
     public void LoadScene(string sceneName)
     {
