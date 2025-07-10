@@ -77,9 +77,9 @@ public class Table : MonoBehaviour
         Vector3 player0Position = thousand.players[0].transform.position;
         Vector3 player1Position = thousand.players[1].transform.position;
         Vector3 player3Position = thousand.players[3].transform.position;
-        turnPointerPositions[0] = new Vector3(player0Position.x, player0Position.y + 200, player0Position.z);
-        turnPointerPositions[1] = new Vector3(player1Position.x + 200, player1Position.y, player1Position.z);
-        turnPointerPositions[3] = new Vector3(player3Position.x - 200, player3Position.y, player3Position.z);
+        turnPointerPositions[0] = new Vector3(player0Position.x, player0Position.y - 150, player0Position.z);
+        turnPointerPositions[1] = new Vector3(player1Position.x - 200, player1Position.y, player1Position.z);
+        turnPointerPositions[3] = new Vector3(player3Position.x + 200, player3Position.y, player3Position.z);
     }
     private void OnTriggerEnter2D(Collider2D collision)
     {
@@ -220,18 +220,14 @@ public class Table : MonoBehaviour
         if (cardsOnStack.Count == 3) StartCoroutine(CollectCards());
         if (!collectingCards)
         {
-            SetNewTurn();
-            StartCoroutine(TurnPointerMove(turn));
-            HandleEnemies();
-        }
-
-        void SetNewTurn()
-        {
+            //set new turn
             do
             {
                 turn = (turn + 1) % 4;
             }
             while (turn == 2);
+            StartCoroutine(TurnPointerMove(turn));
+            HandleEnemies();
         }
     }
     public IEnumerator TurnPointerMove(int turn)
@@ -395,31 +391,8 @@ public class Table : MonoBehaviour
             {
                 int winSuit = winningCard.GetComponent<Selectable2>().suit;
                 int winValue = winningCard.GetComponent<Selectable2>().value;
-                if (winSuit == suit)
-                {
-                    if (suit != marriageNumber && (value > winValue))
-                    {
-                        winningCard = card;
-                        continue;
-                    }
-                    else if (suit == marriageNumber && (value > winValue))
-                    {
-                        winningCard = card;
-                        continue;
-                    }
-                }
-                else
-                {
-                    if (winSuit != marriageNumber && suit == marriageNumber)
-                    {
-                        winningCard = card;
-                        continue;
-                    }
-                    else if (winSuit == marriageNumber && suit != marriageNumber)
-                    {
-                        continue;
-                    }
-                }
+                if ((winSuit == suit && value > winValue) ||
+                    (winSuit != suit && winSuit != marriageNumber && suit == marriageNumber)) winningCard = card;
             }
         }
         for (int i = 0; i < 3; i++)
@@ -439,22 +412,23 @@ public class Table : MonoBehaviour
     }
     public void HandleBids(int biddingTurn)
     {
-        if (everyonePassed) return;
-        Enemy enemy1 = thousand.players[1].GetComponent<Enemy>();
-        Enemy enemy2 = thousand.players[3].GetComponent<Enemy>();
-        Bidding bidding = FindObjectOfType<Bidding>();
-        if (biddingTurn == 1 && !bidding.pass[1])
+        if (everyonePassed) return;        
+        HandleEnemy(1, biddingTurn);
+        HandleEnemy(3, biddingTurn);
+
+        void HandleEnemy(int turn, int biddingTurn)
         {
-            if (enemy1.maxBid == -1) enemy1.maxBid = SetUltimateBid(1);
-            StartCoroutine(enemy1.Bid(ValueToBid(1)));
+            Enemy enemy = thousand.players[turn].GetComponent<Enemy>();
+            Bidding bidding = FindObjectOfType<Bidding>();
+
+            if (biddingTurn != turn) return;
+            if (!bidding.pass[turn])
+            {
+                if (enemy.maxBid == -1) enemy.maxBid = SetUltimateBid(turn);
+                StartCoroutine(enemy.Bid(ValueToBid(turn)));
+            }
+            else bidding.NextTurn();
         }
-        else if (biddingTurn == 1 && bidding.pass[1]) bidding.NextTurn();
-        if (biddingTurn == 3 && !bidding.pass[3])
-        {
-            if (enemy2.maxBid == -1) enemy2.maxBid = SetUltimateBid(3);
-            StartCoroutine(enemy2.Bid(ValueToBid(3)));
-        }
-        else if (biddingTurn == 3 && bidding.pass[3]) bidding.NextTurn();
     }
     private bool CanDeclareMarriage(GameObject declaringCard, int player)
     {
@@ -465,14 +439,10 @@ public class Table : MonoBehaviour
         for (int i = 0; i < thousand.players[player].transform.childCount; i++)
         {
             GameObject card = thousand.players[player].transform.GetChild(i).gameObject;
-            if (dValue == 2 && card.GetComponent<Selectable2>().suit == dSuit && card.GetComponent<Selectable2>().value == 3)
-            {
-                return true;
-            }
-            if (dValue == 3 && card.GetComponent<Selectable2>().suit == dSuit && card.GetComponent<Selectable2>().value == 2)
-            {
-                return true;
-            }
+            int cardValue = card.GetComponent<Selectable2>().value;
+            int cardSuit = card.GetComponent<Selectable2>().suit;
+            if (cardSuit != dSuit) continue;
+            if ((dValue == 2 && cardValue == 3) || (dValue == 3 && cardValue == 2)) return true;
         }
         return false;
     }
