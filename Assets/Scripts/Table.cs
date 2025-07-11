@@ -818,10 +818,7 @@ public class Table : MonoBehaviour
 
         for (int i = 0; i < 4; i++)
         {
-            GameObject enemyPlayer = thousand.players[enemy];
-            IEnemyData chosenComponent;
-            if (enemy <= 3) chosenComponent = enemyPlayer.GetComponent<Enemy>();
-            else chosenComponent = enemyPlayer.GetComponent<Simulated>();
+            IEnemyData chosenComponent = AssignComponent(enemy);
 
             SetAlone10AndMarriagesSuits(chosenComponent, sortedCards, howManyCards, i);
         }
@@ -1078,16 +1075,7 @@ public class Table : MonoBehaviour
         GameObject choosenCard = minCards[Random.Range(0, minCards.Count)];
         GameObject[,] sortedCards = SetSortedCardsVertical(enemyCards);
 
-        GameObject enemyPlayer = thousand.players[enemy];
-        IEnemyData chosenComponent;
-        if (enemy <= 3)
-        {
-            chosenComponent = enemyPlayer.GetComponent<Enemy>();
-        }
-        else // simulation
-        {
-            chosenComponent = enemyPlayer.GetComponent<Simulated>();
-        }
+        IEnemyData chosenComponent = AssignComponent(enemy);
         return TryToAvoidGiving10orMarriage(chosenComponent, choosenCard, sortedCards);
     }
     private GameObject TryToAvoidGiving10orMarriage(IEnemyData enemyData, GameObject chosenCard, GameObject[,] sortedCards, int tryCount = 0)
@@ -1143,19 +1131,14 @@ public class Table : MonoBehaviour
         foreach (GameObject card in enemyCards)
         {
             int cardValue = card.GetComponent<Selectable2>().value;
-            if (cardValue > value && card.GetComponent<Selectable2>().suit == suit)
+            if (cardValue > value && card.GetComponent<Selectable2>().suit == suit && cardValue < minNumber)
             {
-                if (cardValue < minNumber)
-                {
-                    minNumber = cardValue;
-                    chosenCard = card;
+                minNumber = cardValue;
+                chosenCard = card;
 
-                    IEnemyData enemyData;
-                    if (enemy <= 3) enemyData = thousand.players[enemy].GetComponent<Enemy>();
-                    else enemyData = thousand.players[enemy].GetComponent<Simulated>();
+                IEnemyData chosenComponent = AssignComponent(enemy);
 
-                    chosenCard = TryToAvoidGivingMarriage(enemyData, enemyCards, value, enemy, chosenCard, minNumber);
-                }
+                chosenCard = TryToAvoidGivingMarriage(chosenComponent, enemyCards, value, enemy, chosenCard, minNumber);
             }
         }
         return chosenCard;
@@ -1280,6 +1263,14 @@ public class Table : MonoBehaviour
             }
         }
     }
+    private IEnemyData AssignComponent(int enemy)
+    {
+        GameObject enemyPlayer = thousand.players[enemy];
+        IEnemyData selectedComponent;
+        if (enemy <= 3) selectedComponent = enemyPlayer.GetComponent<Enemy>();
+        else selectedComponent = enemyPlayer.GetComponent<Simulated>();
+        return selectedComponent;
+    }
     private GameObject ChooseACard(int enemy)
     {
         List<GameObject> enemyCards = SetEnemyCards(enemy);
@@ -1318,8 +1309,7 @@ public class Table : MonoBehaviour
             if (safeMarriages.Count != 0) return ChooseBestMarriage(safeMarriages, enemy);
 
             // you don't have safe marriage
-            // best move is probably declaring unsfe marriage if you have one
-            //check if you have marriage
+            // best move to declare unsfe marriage if you have one
             List<GameObject> possibleMarriages = new();
             foreach (GameObject card in enemyCards)
             {
@@ -1371,9 +1361,7 @@ public class Table : MonoBehaviour
                         maxChance = chances[i];
                         maxIndex = i;
                     }
-                    //print(chances[i] + " " + (greatestSuits[i] > 0));
                 }
-                //print("max chance: " + maxChance);
                 if (maxChance >= 0.5f) // choose the lowest card from greatest cards, but there is at most only one card from each suit
                 {
                     foreach (GameObject card in greatestCards)
@@ -1424,43 +1412,34 @@ public class Table : MonoBehaviour
             GameObject firstCard = cardsOnStack[0];
             int firstSuit = firstCard.GetComponent<Selectable2>().suit;
             int firstValue = firstCard.GetComponent<Selectable2>().value;
-            // breaking marriages
 
             // check if you have cards in this suit
             bool hasPrevSuitCards = false;
             bool hasMarriageCards = false;
             foreach (GameObject child in enemyCards)
             {
-                if (child.GetComponent<Selectable2>().suit == firstSuit) hasPrevSuitCards = true;
-                if (child.GetComponent<Selectable2>().suit == marriageNumber) hasMarriageCards = true;
+                int cardSuit = child.GetComponent<Selectable2>().suit;
+                if (cardSuit == firstSuit) hasPrevSuitCards = true;
+                if (cardSuit == marriageNumber) hasMarriageCards = true;
                 if (hasPrevSuitCards && hasMarriageCards) break;
             }
-            if (cardsOnStack.Count == 1) //DONE
-            { // there is only one card on the stack
-                if (hasPrevSuitCards) ///////////////////////////////////////////////////////////////// if doesnt have to give greater
-                {
-                    // check what is the greatest card
-                    int greatestCard = 5;
-                    List<int> values = new();
+            if (!hasPrevSuitCards && !hasMarriageCards) return PlayLowestCardFromRandomSuit(enemyCards, enemy);
 
-                    foreach (GameObject card in removedCards)
-                    {
-                        if (card.GetComponent<Selectable2>().suit == firstSuit)
-                        {
-                            values.Add(card.GetComponent<Selectable2>().value);
-                        }
-                    }
-                    values.Sort();
-                    values.Reverse();
-                    foreach (int val in values) if (val == greatestCard) greatestCard--;
-                    // check if you have the greatest card that is in the game (exp 10 if Ace is in the pile)
+            if (cardsOnStack.Count == 1)
+                return OneCardOnStack(enemy, enemyCards, ref choosenCard, firstSuit, hasPrevSuitCards);
+            else
+                return TwoCardsOnStack(enemy, enemyCards, ref choosenCard, firstSuit, firstValue, hasPrevSuitCards);
+
+            GameObject OneCardOnStack(int enemy, List<GameObject> enemyCards, ref GameObject chosenCard, int firstSuit, bool hasPrevSuitCards)
+            {
+                if (hasPrevSuitCards)
+                {
+                    int greatestCard = SetOneGreatestCard(firstSuit);
+                    // check if you have the greatest card that is in the game
                     foreach (GameObject card in enemyCards)
                     {
                         if (card.GetComponent<Selectable2>().suit == firstSuit && card.GetComponent<Selectable2>().value == greatestCard)
-                        {
-                            // if so play that card
                             return card;
-                        }
                     }
                     // else play the lowest card 
                     int minNumber = 6;
@@ -1469,216 +1448,157 @@ public class Table : MonoBehaviour
                     GameObject cardOf10 = null;
                     foreach (GameObject card in enemyCards)
                     {
-                        if (card.GetComponent<Selectable2>().value == 5) amoutOfAces++;
-                        if (card.GetComponent<Selectable2>().value == 4) amoutOf10s++;
-                        if (card.GetComponent<Selectable2>().value == 4 && card.GetComponent<Selectable2>().suit == firstSuit) cardOf10 = card;
-                        if (card.GetComponent<Selectable2>().suit == firstSuit && card.GetComponent<Selectable2>().value < minNumber)
+                        int cardValue = card.GetComponent<Selectable2>().value;
+                        int cardSuit = card.GetComponent<Selectable2>().suit;
+                        if (cardValue == 5) amoutOfAces++;
+                        else if (cardValue == 4) amoutOf10s++;
+                        if (cardValue == 4 && cardSuit == firstSuit) cardOf10 = card;
+                        if (cardSuit == firstSuit && cardValue < minNumber)
                         {
-                            minNumber = card.GetComponent<Selectable2>().value;
-                            choosenCard = card;
+                            minNumber = cardValue;
+                            chosenCard = card;
                         }
                     }
                     // try to avoid breaking marriage if you chave chance to declare
-                    if (enemy <= 3)
-                    {
-                        if (cardOf10 != null)
-                        {
-                            if ((choosenCard.GetComponent<Selectable2>().value == 2 || choosenCard.GetComponent<Selectable2>().value == 3) && thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[firstSuit] > 0)
-                            {
-                                print("trying not to give marriage4");
-                                if (amoutOfAces > 0 || amoutOf10s >= 2)
-                                {
-                                    choosenCard = cardOf10;
-                                }
-                            }
-                        }
-                    }
-                    else // simulation
-                    {
-                        if (cardOf10 != null)
-                        {
-                            if ((choosenCard.GetComponent<Selectable2>().value == 2 || choosenCard.GetComponent<Selectable2>().value == 3) && thousand.players[enemy].GetComponent<Simulated>().marriagesSuits[firstSuit] > 0)
-                            {
-                                print("trying not to give marriage4");
-                                if (amoutOfAces > 0 || amoutOf10s >= 2)
-                                {
-                                    choosenCard = cardOf10;
-                                }
-                            }
-                        }
-                    }
-                    return choosenCard;
+                    IEnemyData chosenComponent = AssignComponent(enemy);
+                    if (CanAvoidBreakingMarriage(chosenComponent, chosenCard, firstSuit, amoutOfAces, amoutOf10s, cardOf10))
+                        chosenCard = cardOf10;
+                    return chosenCard;
                 }
                 else
                 {
-                    if (hasMarriageCards)
+                    // if has the greatest marrige card play it, else play lowest marriage card
+                    int greatestCard = SetOneGreatestCard(marriageNumber);
+                    // check if you have the greatest card that is in the game (exp 10 if Ace is in the pile)
+                    foreach (GameObject card in enemyCards)
                     {
-                        // if has the greatest marrige card play it, else play lowest marriage card
-                        // check what is the greatest card
-                        int greatestCard = 5;
-                        List<int> values = new();
+                        if (card.GetComponent<Selectable2>().suit == marriageNumber && card.GetComponent<Selectable2>().value == greatestCard)
+                            return card;
+                    }
+                    return ChooseLowestMarriageCard(enemyCards, ref chosenCard);
+                }
 
-                        foreach (GameObject card in removedCards)
-                        {
-                            if (card.GetComponent<Selectable2>().suit == marriageNumber)
-                            {
-                                values.Add(card.GetComponent<Selectable2>().value);
-                            }
-                        }
-                        values.Sort();
-                        values.Reverse();
-                        foreach (int val in values) if (val == greatestCard) greatestCard--;
-                        // check if you have the greatest card that is in the game (exp 10 if Ace is in the pile)
-                        foreach (GameObject card in enemyCards)
-                        {
-                            if (card.GetComponent<Selectable2>().suit == marriageNumber && card.GetComponent<Selectable2>().value == greatestCard)
-                            {
-                                // if so play that card
-                                return card;
-                            }
-                        }
-                        // else play lowest marriage card
-                        int minNumber = 6;
-                        foreach (GameObject card in enemyCards)
-                        {
-                            if (card.GetComponent<Selectable2>().suit == marriageNumber && card.GetComponent<Selectable2>().value < minNumber)
-                            {
-                                minNumber = card.GetComponent<Selectable2>().value;
-                                choosenCard = card;
-                            }
-                        }
-                        return choosenCard;
-                    }
-                    else
+                bool CanAvoidBreakingMarriage(IEnemyData enemyData, GameObject choosenCard, int firstSuit, int amoutOfAces, int amoutOf10s, GameObject cardOf10)
+                {
+                    if (cardOf10 == null) return false;
+
+                    int cardValue = choosenCard.GetComponent<Selectable2>().value;
+                    if ((cardValue == 2 || cardValue == 3) && enemyData.marriagesSuits[firstSuit] > 0 && (amoutOfAces > 0 || amoutOf10s >= 2))
+                        return true;
+
+                    return false;
+                }
+
+                int SetOneGreatestCard(int suitToCompare)
+                {
+                    // check what is the greatest card
+                    int greatestCard = 5;
+                    List<int> values = new();
+
+                    foreach (GameObject card in removedCards)
                     {
-                        return PlayLowestCardFromRandomSuit(enemyCards, enemy);
+                        if (card.GetComponent<Selectable2>().suit == suitToCompare)
+                        {
+                            values.Add(card.GetComponent<Selectable2>().value);
+                        }
                     }
+                    values.Sort();
+                    values.Reverse();
+                    foreach (int val in values) if (val == greatestCard) greatestCard--;
+                    return greatestCard;
                 }
             }
-            else //DONE
-            { // there are two cards on stack
+
+            GameObject TwoCardsOnStack(int enemy, List<GameObject> enemyCards, ref GameObject chosenCard, int firstSuit, int firstValue, bool hasPrevSuitCards)
+            {
                 GameObject secondCard = cardsOnStack[1];
                 int secondSuit = secondCard.GetComponent<Selectable2>().suit;
                 int secondValue = secondCard.GetComponent<Selectable2>().value;
-                if (hasPrevSuitCards) //DONE
+                if (hasPrevSuitCards)
                 {
                     //set ready the lowest card
                     int minNumber = 6;
                     GameObject lowestCard = null;
                     GameObject safeLowestCard1 = null;
                     GameObject safeLowestCard2 = null;
+                    IEnemyData selectedComponent;
                     foreach (GameObject card in enemyCards)
                     {
-                        if (card.GetComponent<Selectable2>().suit == firstSuit && card.GetComponent<Selectable2>().value <= minNumber)
+                        int cardSuit = card.GetComponent<Selectable2>().suit;
+                        int cardValue = card.GetComponent<Selectable2>().value;
+                        if (cardSuit == firstSuit && cardValue <= minNumber)
                         {
-                            if (enemy <= 3)
-                            {
-                                if ((card.GetComponent<Selectable2>().value != 2 && card.GetComponent<Selectable2>().value != 3) || thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[card.GetComponent<Selectable2>().suit] == 0)
-                                {
-                                    //print("trying not to give marriage3");
-                                    //try to give something else
-                                    safeLowestCard1 = card;
-                                }
-                                if (thousand.players[enemy].GetComponent<Enemy>().alone10[card.GetComponent<Selectable2>().suit] == 0)
-                                {
-                                    //print("trying not to give alone 10 3");
-                                    //try to give something else
-                                    safeLowestCard2 = card;
-                                }
-                            }
-                            else // simulation
-                            {
-                                if ((card.GetComponent<Selectable2>().value != 2 && card.GetComponent<Selectable2>().value != 3) || thousand.players[enemy].GetComponent<Simulated>().marriagesSuits[card.GetComponent<Selectable2>().suit] == 0)
-                                    safeLowestCard1 = card;
-                                if (thousand.players[enemy].GetComponent<Simulated>().alone10[card.GetComponent<Selectable2>().suit] == 0)
-                                    safeLowestCard2 = card;
-                            }
+                            selectedComponent = AssignComponent(enemy);
 
-                        }
-                        if (card.GetComponent<Selectable2>().suit == firstSuit && card.GetComponent<Selectable2>().value < minNumber)
-                        {
-                            minNumber = card.GetComponent<Selectable2>().value;
+                            SetSafeLowestCards(selectedComponent, ref safeLowestCard1, ref safeLowestCard2, card);
+
+                            minNumber = cardValue;
                             lowestCard = card;
                         }
                     }
-                    if (enemy <= 3)
-                    {
-                        if (safeLowestCard2 != null && thousand.players[enemy].GetComponent<Enemy>().alone10[lowestCard.GetComponent<Selectable2>().suit] == 1) lowestCard = safeLowestCard2;
-                        if (safeLowestCard1 != null && (lowestCard.GetComponent<Selectable2>().value == 2 || lowestCard.GetComponent<Selectable2>().value == 3) && thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[lowestCard.GetComponent<Selectable2>().suit] > 0) lowestCard = safeLowestCard1;
-                    }
-                    else // simulation
-                    {
-                        if (safeLowestCard2 != null && thousand.players[enemy].GetComponent<Simulated>().alone10[lowestCard.GetComponent<Selectable2>().suit] == 1) lowestCard = safeLowestCard2;
-                        if (safeLowestCard1 != null && (lowestCard.GetComponent<Selectable2>().value == 2 || lowestCard.GetComponent<Selectable2>().value == 3) && thousand.players[enemy].GetComponent<Simulated>().marriagesSuits[lowestCard.GetComponent<Selectable2>().suit] > 0) lowestCard = safeLowestCard1;
-                    }
-                    // check which of the two cards is greater
-                    if (secondSuit == marriageNumber && firstSuit != marriageNumber)
-                    { // give the lowest card
-                        return lowestCard;
-                    }
-                    else if (firstValue >= secondValue || (secondValue >= firstValue && firstSuit != secondSuit))
-                    { // check if you can take
-                      // if so, play minimal greater card to take
-                      // else give the lowest card
-                        choosenCard = PlayMinimalGreater(enemyCards, firstSuit, firstValue, enemy);
-                        if (choosenCard != null) return choosenCard;
-                        else return lowestCard;
-                    }
-                    else if (secondValue > firstValue && firstSuit == secondSuit)
-                    { // secondValue > firstValue, equal suits
-                        // check if you can take
-                        // if so, play minimal greater card to take
-                        // else give the lowest card
-                        choosenCard = PlayMinimalGreater(enemyCards, firstSuit, secondValue, enemy);
-                        if (choosenCard != null) return choosenCard;
-                        else return lowestCard;
-                    }
-                    else
-                    {
-                        print("ten przypadek nie powinien zachodziæ");
-                        return lowestCard;
-                    }
+                    selectedComponent = AssignComponent(enemy);
+                    lowestCard = ChangeLowestCardToSafeCard(lowestCard, safeLowestCard1, safeLowestCard2, selectedComponent);
+
+                    return CompareCards(enemy, enemyCards, ref chosenCard, firstSuit, firstValue, secondSuit, secondValue, lowestCard);
                 }
-                else //DONE
-                {//else check if you have marriage cards
-                    if (hasMarriageCards && secondSuit == marriageNumber)
+                else
+                {
+                    if (secondSuit == marriageNumber)
                     {
                         // if has greater and doesn't have first color cards then steal
-                        choosenCard = PlayMinimalGreater(enemyCards, marriageNumber, secondValue, enemy);
-                        if (choosenCard != null) return choosenCard;
-                        // else play lowest marriage card
-                        int minNumber = 6;
-                        foreach (GameObject card in enemyCards)
-                        {
-                            if (card.GetComponent<Selectable2>().suit == marriageNumber && card.GetComponent<Selectable2>().value < minNumber)
-                            {
-                                minNumber = card.GetComponent<Selectable2>().value;
-                                choosenCard = card;
-                            }
-                        }
-                        return choosenCard;
+                        chosenCard = PlayMinimalGreater(enemyCards, marriageNumber, secondValue, enemy);
+                        if (chosenCard != null) return chosenCard;
                     }
-                    else if (hasMarriageCards && secondSuit != marriageNumber)
-                    {
-                        // if so play lowest marriage card
-                        int minNumber = 6;
-                        foreach (GameObject card in enemyCards)
-                        {
-                            if (card.GetComponent<Selectable2>().suit == marriageNumber && card.GetComponent<Selectable2>().value < minNumber)
-                            {
-                                minNumber = card.GetComponent<Selectable2>().value;
-                                choosenCard = card;
-                            }
-                        }
-                        return choosenCard;
-                    }
-                    else
-                    {
-                        return PlayLowestCardFromRandomSuit(enemyCards, enemy);
-                    }
+                    return ChooseLowestMarriageCard(enemyCards, ref chosenCard);
+                }
+
+                void SetSafeLowestCards(IEnemyData component, ref GameObject safeLowestCard1, ref GameObject safeLowestCard2, GameObject card)
+                {
+                    int cardSuit = card.GetComponent<Selectable2>().suit;
+                    int cardValue = card.GetComponent<Selectable2>().value;
+                    if ((cardValue != 2 && cardValue != 3) || component.marriagesSuits[cardSuit] == 0) safeLowestCard1 = card;
+                    if (component.alone10[cardSuit] == 0) safeLowestCard2 = card;
+                }
+
+                static GameObject ChangeLowestCardToSafeCard(GameObject lowestCard, GameObject safeLowestCard1, GameObject safeLowestCard2, IEnemyData selectedComponent)
+                {
+                    int lowestCardValue = lowestCard.GetComponent<Selectable2>().value;
+                    int lowestCardSuit = lowestCard.GetComponent<Selectable2>().suit;
+                    if (safeLowestCard2 != null && selectedComponent.alone10[lowestCardSuit] == 1) lowestCard = safeLowestCard2;
+                    if (safeLowestCard1 != null && (lowestCardValue == 2 || lowestCardValue == 3) && selectedComponent.marriagesSuits[lowestCardSuit] > 0) lowestCard = safeLowestCard1;
+                    return lowestCard;
                 }
             }
         }
-        //return null;
+    }
+
+    private GameObject CompareCards(int enemy, List<GameObject> enemyCards, ref GameObject choosenCard, int firstSuit, int firstValue, int secondSuit, int secondValue, GameObject lowestCard)
+    {
+        // check which of the two cards is greater
+
+        if (secondSuit == marriageNumber && firstSuit != marriageNumber) return lowestCard;
+
+        int selectedValue;
+        if (firstValue >= secondValue || firstSuit != secondSuit) selectedValue = firstValue;
+        else selectedValue = secondValue;
+
+        choosenCard = PlayMinimalGreater(enemyCards, firstSuit, selectedValue, enemy);
+        if (choosenCard != null) return choosenCard;
+        return lowestCard;
+    }
+    private GameObject ChooseLowestMarriageCard(List<GameObject> enemyCards, ref GameObject chosenCard)
+    {
+        // else play lowest marriage card
+        int minNumber = 6;
+        foreach (GameObject card in enemyCards)
+        {
+            int cardValue = card.GetComponent<Selectable2>().value;
+            if (card.GetComponent<Selectable2>().suit == marriageNumber && cardValue < minNumber)
+            {
+                minNumber = cardValue;
+                chosenCard = card;
+            }
+        }
+        return chosenCard;
     }
 }
