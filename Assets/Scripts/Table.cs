@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Linq;
 
 public class Table : MonoBehaviour
 {
@@ -1183,18 +1183,16 @@ public class Table : MonoBehaviour
         int[] greatestGameCards = SetGreatestCards();
         // if you have any then play greatest cards that are in the game
         List<GameObject> greatestCards = new();
-        for (int i = 0; i < 4; i++)
+        foreach (GameObject card in enemyCards)
         {
-            foreach (GameObject card in enemyCards)
-            {
-                if (card.GetComponent<Selectable2>().suit == i && card.GetComponent<Selectable2>().value == greatestGameCards[i])
-                    greatestCards.Add(card);
-            }
+            Selectable2 selectable = card.GetComponent<Selectable2>();
+            if (selectable.value == greatestGameCards[selectable.suit])
+                greatestCards.Add(card);
         }
+
         if (greatestCards.Count() != 0)
         {
             // find the lowest
-            //return greatestCards.OrderBy(g => g.GetComponent<Selectable2>().value).First();
             int minNumber = 6;
             GameObject lowestCard = null;
             foreach (GameObject card in greatestCards)
@@ -1235,28 +1233,27 @@ public class Table : MonoBehaviour
                 return PlayLowestCardFromRandomSuit(enemyCards, enemy);
             }
         }
-
-        int[] SetGreatestCards()
+    }
+    private int[] SetGreatestCards()
+    {
+        // set greatest cards in the game
+        int[] greatestCard = { 5, 5, 5, 5 };
+        List<int>[] values = new List<int>[4] { new(), new(), new(), new() };
+        foreach (GameObject card in removedCards)
         {
-            // set greatest cards in the game
-            int[] greatestCard = { 5, 5, 5, 5 };
-            List<int>[] values = new List<int>[4] { new(), new(), new(), new() };
-            foreach (GameObject card in removedCards)
-            {
-                values[card.GetComponent<Selectable2>().suit].Add(card.GetComponent<Selectable2>().value);
-            }
-            for (int i = 0; i < 4; i++)
-            {
-                values[i].Sort();
-                values[i].Reverse();
-                foreach (int val in values[i])
-                {
-                    if (val == greatestCard[i]) greatestCard[i]--;
-                }
-            }
-
-            return greatestCard;
+            values[card.GetComponent<Selectable2>().suit].Add(card.GetComponent<Selectable2>().value);
         }
+        for (int i = 0; i < 4; i++)
+        {
+            values[i].Sort();
+            values[i].Reverse();
+            foreach (int val in values[i])
+            {
+                if (val == greatestCard[i]) greatestCard[i]--;
+            }
+        }
+
+        return greatestCard;
     }
     private GameObject ChooseBestMarriage(List<GameObject> possibleMarriages, int enemy)
     {
@@ -1285,206 +1282,145 @@ public class Table : MonoBehaviour
     }
     private GameObject ChooseACard(int enemy)
     {
-        GameObject choosenCard = null;
-        List<GameObject> enemyCards = new();
-        foreach (Transform tran in thousand.players[enemy].transform)
-        {
-            GameObject card = tran.gameObject;
-            enemyCards.Add(card);
-        }
-        if (cardsOnStack.Count == 0)
-        { // is starting a new game
-            if (marriageNumber == -1)
-            { // there is no marriage
-                return ThereIsNoMarriage(enemyCards, enemy);
-            }
-            else
-            { // there is a marriage
-                // if you have the greatest card from that marriage, play that card
+        List<GameObject> enemyCards = SetEnemyCards(enemy);
 
-                // update greatest cards in the game
-                int[] greatestCard = { 5, 5, 5, 5 };
-                List<int>[] values = new List<int>[4] { new(), new(), new(), new() };
+        if (cardsOnStack.Count == 0) return StartNewGame(enemy, enemyCards);
+        else return ContinueAGame(enemy, enemyCards);
+
+
+        GameObject StartNewGame(int enemy, List<GameObject> enemyCards)
+        {
+            if (marriageNumber == -1) return ThereIsNoMarriage(enemyCards, enemy);
+            //check if there are any cards from declared marriage
+            int cardsFromMarriage = 0;
+            foreach (GameObject card in removedCards)
+                if (card.GetComponent<Selectable2>().suit == marriageNumber) cardsFromMarriage++;
+            // check if there are no cards from declared marriage
+            if (cardsFromMarriage == 6) return ThereIsNoMarriage(enemyCards, enemy);
+
+            // there is a marriage
+            // if you have the greatest card from that marriage, play that card
+
+            // update greatest cards in the game
+            int[] greatestGameCards = SetGreatestCards();
+
+            foreach (GameObject card in enemyCards)
+            {
+                // if you have the greatest card from declared marriage then return
+                if (card.GetComponent<Selectable2>().suit == marriageNumber && greatestGameCards[marriageNumber] == card.GetComponent<Selectable2>().value)
+                    return card;
+            }
+
+            // there are still cards from declared marriage but you don't have the greatest
+            // check for safe marriage
+            List<GameObject> safeMarriages = SetSafeMarriages(enemy, enemyCards);
+            // if you have safe marriage then declare
+            if (safeMarriages.Count != 0) return ChooseBestMarriage(safeMarriages, enemy);
+
+            // you don't have safe marriage
+            // best move is probably declaring unsfe marriage if you have one
+            //check if you have marriage
+            List<GameObject> possibleMarriages = new();
+            foreach (GameObject card in enemyCards)
+            {
+                if (card.GetComponent<Selectable2>().value == 2 && CanDeclareMarriage(card, enemy))
+                {
+                    possibleMarriages.Add(card);
+                }
+            }
+            // if you have marriage then declare
+            if (possibleMarriages.Count != 0) return ChooseBestMarriage(possibleMarriages, enemy);
+
+            // second best move is to calculate that is it better to play greatest card in the game if you have one or just playing your lowest card
+            //check if you have one of the greatest cards that are in the game
+            List<GameObject> greatestCards = new();
+            int[] greatestSuits = new int[4] { 0, 0, 0, 0 };
+            foreach (GameObject card in enemyCards)
+            {
+                Selectable2 selectable = card.GetComponent<Selectable2>();
+                if (selectable.value == greatestGameCards[selectable.suit])
+                {
+                    greatestCards.Add(card);
+                    greatestSuits[selectable.suit]++;
+                }
+            }
+            if (greatestCards.Count() != 0)
+            {
+                // what are the chances that other players don't have that color and will take the card
+                // calculate chances that you can safely play card
+                int[] howManyCards = new int[4] { 0, 0, 0, 0 };
+                float[] chances = new float[4] { 0, 0, 0, 0 };
+                //print("how many cards:");
                 foreach (GameObject card in removedCards)
                 {
-                    values[card.GetComponent<Selectable2>().suit].Add(card.GetComponent<Selectable2>().value);
+                    howManyCards[card.GetComponent<Selectable2>().suit]++;
                 }
+                foreach (GameObject card in enemyCards)
+                {
+                    howManyCards[card.GetComponent<Selectable2>().suit]++;
+                }
+                // calculate chances
+                int maxIndex = -1;
+                float maxChance = 0;
                 for (int i = 0; i < 4; i++)
                 {
-                    values[i].Sort();
-                    values[i].Reverse();
-                    foreach (int val in values[i])
+                    howManyCards[i] = 6 - howManyCards[i];
+                    chances[i] = howManyCards[i] / 6.0f;
+                    if (chances[i] > maxChance && greatestSuits[i] > 0)
                     {
-                        if (val == greatestCard[i]) greatestCard[i]--;
+                        maxChance = chances[i];
+                        maxIndex = i;
                     }
+                    //print(chances[i] + " " + (greatestSuits[i] > 0));
                 }
-
-                foreach(GameObject card in enemyCards)
+                //print("max chance: " + maxChance);
+                if (maxChance >= 0.5f) // choose the lowest card from greatest cards, but there is at most only one card from each suit
                 {
-                    if (card.GetComponent<Selectable2>().suit == marriageNumber && greatestCard[marriageNumber] == card.GetComponent<Selectable2>().value)
+                    foreach (GameObject card in greatestCards)
                     {
-                        // you have the greatest card from declared marriage
-                        return card;
+                        if (card.GetComponent<Selectable2>().suit == maxIndex) return card;
                     }
                 }
-                // you don't
+            }
+            return PlayLowestCardFromRandomSuit(enemyCards, enemy);
 
-                //check if there are any cards from declared marriage
-                int cardsFdm = 0;
-                foreach (GameObject card in removedCards)
+            List<GameObject> SetSafeMarriages(int enemy, List<GameObject> enemyCards)
+            {
+                //safe marriage(marriage and 10 and Ace) or (marriage, but king that is the greatest card in the game
+                List<GameObject> safeMarriages = new();
+                GameObject[] possibleMarriages = new GameObject[4];
+                int[] hasOtherCards = new int[4];
+                bool hasPossibleMarriages = false;
+
+                foreach (GameObject card in enemyCards)
                 {
-                    if (card.GetComponent<Selectable2>().suit == marriageNumber)
-                    {
-                        cardsFdm++;
-                    }
+                    int cardValue = card.GetComponent<Selectable2>().value;
+                    int cardSuit = card.GetComponent<Selectable2>().suit;
+                    if (cardValue == 4 || cardValue == 5) { hasOtherCards[cardSuit]++; continue; }// if has 10 or Ace
+                    if (cardValue == 2 && CanDeclareMarriage(card, enemy)) { possibleMarriages[cardSuit] = card; hasPossibleMarriages = true; } 
                 }
-                if (cardsFdm != 6)
-                { // there are still cards from declared marriage but you don't have the greatest
-                    // check for safe marriage
-                    List<GameObject> safeMarriages = new();
+                if (hasPossibleMarriages)
+                {
                     for (int i = 0; i < 4; i++)
                     {
-                        GameObject possibleMarriages = null;
-                        int hasOtherCards = 0;
-                        foreach (GameObject card in enemyCards)
+                        if (possibleMarriages[i] == null) continue;
+                        if (hasOtherCards[i] == 2) { safeMarriages.Add(possibleMarriages[i]); continue; }
+                        foreach (GameObject card in removedCards)
                         {
-                            if (card.GetComponent<Selectable2>().suit == i)
-                            {
-                                if (card.GetComponent<Selectable2>().value == 2 && CanDeclareMarriage(card, enemy)) // if has queen that can declare
-                                {
-                                    possibleMarriages = card;
-                                }
-                                else if (card.GetComponent<Selectable2>().value == 4) hasOtherCards++; // if has 10
-                                else if (card.GetComponent<Selectable2>().value == 5) hasOtherCards++; // if has Ace
-                            }
+                            int cardValue = card.GetComponent<Selectable2>().value;
+                            if (cardValue == 4 || cardValue == 5) hasOtherCards[i]++; // if 10 or Ace is in removed cards
                         }
-                        if (possibleMarriages != null)
-                        {
-                            if (hasOtherCards == 2) safeMarriages.Add(possibleMarriages);
-                            else if (hasOtherCards == 1 || hasOtherCards == 0)
-                            {
-                                foreach (GameObject card in removedCards)
-                                {
-                                    if (card.GetComponent<Selectable2>().suit == i)
-                                    {
-                                        if (card.GetComponent<Selectable2>().value == 4) hasOtherCards++; // if 10 is in removed cards
-                                        else if (card.GetComponent<Selectable2>().value == 5) hasOtherCards++; // if Ace in removed cards
-                                    }
-                                }
-                                if (hasOtherCards == 2) safeMarriages.Add(possibleMarriages);
-                            }
-                        }
+                        if (hasOtherCards[i] == 2) safeMarriages.Add(possibleMarriages[i]);
                     }
-                    // if you have safe marriage then declare (safe marriage (marriage and 10 and Ace) or (marriage, but king that is the greatest card in the game)
-                    if (safeMarriages.Count != 0)
-                    { // you have safe marriages (might be more than one)
-                      //chose best marriage and declare
-                        return ChooseBestMarriage(safeMarriages, enemy);
-                        // if you declared safe marriage then play cards from that new marriagie until you have (1) left or 0 left if there are still many cards in the game
-                        // that is done by playing greatest cards from declared marriage
-                    }
-                    else
-                    { // you don't have safe marriage
-                        // best move is probably declaring unsfe marriage if you have one
-                        //check if you have marriage
-                        List<GameObject> possibleMarriages = new();
-                        foreach (GameObject card in enemyCards)
-                        {
-                            if (card.GetComponent<Selectable2>().value == 2 && CanDeclareMarriage(card, enemy))
-                            {
-                                possibleMarriages.Add(card);
-                            }
-                        }
-                        // if you have marriage then declare
-                        if (possibleMarriages.Count != 0)
-                        {
-                            //choose the best marriage
-                            return ChooseBestMarriage(possibleMarriages, enemy);
-                        }
-                        else
-                        {
-                            // second best move is to calculate that is it better to play greatest card in the game if you have one or just playing your lowest card
+                }
 
-                            //check if you have one of the greatest cards that are in the game
-                            List<GameObject> greatestCards = new();
-                            int[] greatestSuits = new int[4] { 0, 0, 0, 0 };
-                            for (int i = 0; i < 4; i++)
-                            {
-                                foreach (GameObject card in enemyCards)
-                                {
-                                    if (card.GetComponent<Selectable2>().suit == i && card.GetComponent<Selectable2>().value == greatestCard[i])
-                                    {
-                                        greatestCards.Add(card);
-                                        greatestSuits[i]++;
-                                    }    
-                                }
-                            }
-                            if (greatestCards.Count() != 0)
-                            {
-                                // what are the chances that other players don't have that color and will take the card
-                                // calculate chances that you can safely play card
-                                int[] howManyCards = new int[4] { 0, 0, 0, 0 };
-                                float[] chances = new float[4] { 0, 0, 0, 0 };
-                                //print("how many cards:");
-                                for (int i = 0; i < 4; i++)
-                                {
-                                    foreach (GameObject card in removedCards)
-                                    {
-                                        if (card.GetComponent<Selectable2>().suit == i) howManyCards[i]++;
-                                    }
-                                    foreach (GameObject card in enemyCards)
-                                    {
-                                        if (card.GetComponent<Selectable2>().suit == i) howManyCards[i]++;
-                                    }
-                                    //print(howManyCards[i]);
-                                }
-                                int maxIndex = -1;
-                                float maxChance = 0;
-                                //print("Chances: ");
-                                for (int i = 0; i < 4; i++)
-                                {
-                                    howManyCards[i] = 6 - howManyCards[i];
-                                    chances[i] = howManyCards[i] / 6.0f;
-                                    if (chances[i] > maxChance && greatestSuits[i] > 0)
-                                    {
-                                        maxChance = chances[i];
-                                        maxIndex = i;
-                                    }
-                                    //print(chances[i] + " " + (greatestSuits[i] > 0));
-                                }
-                                //print("max chance: " + maxChance);
-                                if (maxChance >= 0.5f) // choose the lowest card from greatest cards, but there is at most only one card from each suit
-                                {
-                                    foreach (GameObject card in greatestCards)
-                                    {
-                                        if (card.GetComponent<Selectable2>().suit == maxIndex) return card;
-                                    }
-                                }
-                                else
-                                {
-                                    return PlayLowestCardFromRandomSuit(enemyCards, enemy);
-                                }
-                                print("something is wrong!");
-                                return PlayLowestCardFromRandomSuit(enemyCards, enemy);
-                            }
-                            else
-                            {
-                                return PlayLowestCardFromRandomSuit(enemyCards, enemy);
-                            }
-                        }
-                    }
-                }
-                else
-                { // there are no cards from declared marriage
-                  // then update and play the greatest card in the game
-                    // if you have any then play greatest cards that are in the game
-                    return ThereIsNoMarriage(enemyCards, enemy);
-                }
-                //return null;
+                return safeMarriages;
             }
         }
-        else
-        { // is continuing a game
+
+        GameObject ContinueAGame(int enemy, List<GameObject> enemyCards)
+        {
+            GameObject choosenCard = null;
             GameObject firstCard = cardsOnStack[0];
             int firstSuit = firstCard.GetComponent<Selectable2>().suit;
             int firstValue = firstCard.GetComponent<Selectable2>().value;
@@ -1493,7 +1429,7 @@ public class Table : MonoBehaviour
             // check if you have cards in this suit
             bool hasPrevSuitCards = false;
             bool hasMarriageCards = false;
-            foreach(GameObject child in enemyCards)
+            foreach (GameObject child in enemyCards)
             {
                 if (child.GetComponent<Selectable2>().suit == firstSuit) hasPrevSuitCards = true;
                 if (child.GetComponent<Selectable2>().suit == marriageNumber) hasMarriageCards = true;
@@ -1635,7 +1571,7 @@ public class Table : MonoBehaviour
                     {
                         if (card.GetComponent<Selectable2>().suit == firstSuit && card.GetComponent<Selectable2>().value <= minNumber)
                         {
-                            if(enemy <= 3)
+                            if (enemy <= 3)
                             {
                                 if ((card.GetComponent<Selectable2>().value != 2 && card.GetComponent<Selectable2>().value != 3) || thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[card.GetComponent<Selectable2>().suit] == 0)
                                 {
@@ -1657,7 +1593,7 @@ public class Table : MonoBehaviour
                                 if (thousand.players[enemy].GetComponent<Simulated>().alone10[card.GetComponent<Selectable2>().suit] == 0)
                                     safeLowestCard2 = card;
                             }
-                            
+
                         }
                         if (card.GetComponent<Selectable2>().suit == firstSuit && card.GetComponent<Selectable2>().value < minNumber)
                         {
