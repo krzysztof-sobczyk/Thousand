@@ -628,13 +628,10 @@ public class Table : MonoBehaviour
             { null, null, null, null, null, null },
             { null, null, null, null, null, null }
         };
-        for (int i = 0; i < 4; i++)
+        foreach (GameObject card in enemyCards)
         {
-            foreach (GameObject card in enemyCards)
-            {
-                Selectable2 selectable = card.GetComponent<Selectable2>();
-                if (selectable.suit == i) sortedCards[i, selectable.value] = card;
-            }
+            Selectable2 selectable = card.GetComponent<Selectable2>();
+            sortedCards[selectable.suit, selectable.value] = card;
         }
 
         return sortedCards;
@@ -768,18 +765,15 @@ public class Table : MonoBehaviour
         }
 
         // from list with maxBid choose the weakest cards to give
-        //print("maxBid: " + maxBid + " maxSafeBid: " + maxSafeBid);
         GameObject[] chosenCards;
         if (maxSafeBid != 0 && maxSafeBid + 10 >= maxBid)
         {
             chosenCards = ChooseCardsToGive(safeCardsToGive);
-            //print("safe cards given");
         }
         else
         {
             chosenCards = ChooseCardsToGive(cardsToGive);
         }
-        //print(chosenCards[0].name + " " + chosenCards[1].name);
         thousand.players[enemy].GetComponent<Enemy>().cardsToGive[0] = chosenCards[0];
         thousand.players[enemy].GetComponent<Enemy>().cardsToGive[1] = chosenCards[1];
 
@@ -814,54 +808,31 @@ public class Table : MonoBehaviour
         List<GameObject> enemyCards = SetEnemyCards(enemy);
         GameObject[,] sortedCards = SetSortedCardsHorizontal(enemyCards);
         int[] howManyCards = new int[4] { 0, 0, 0, 0 };
+
+        foreach (GameObject card in enemyCards)
+            howManyCards[card.GetComponent<Selectable2>().suit]++;
+
         for (int i = 0; i < 4; i++)
         {
-            foreach (GameObject card in enemyCards)
-            {
-                if (card.GetComponent<Selectable2>().suit == i)
-                {
-                    howManyCards[i]++;
-                }
-            }
+            GameObject enemyPlayer = thousand.players[enemy];
+            IEnemyData chosenComponent;
+            if (enemy <= 3) chosenComponent = enemyPlayer.GetComponent<Enemy>();
+            else chosenComponent = enemyPlayer.GetComponent<Simulated>();
+
+            SetAlone10AndMarriagesSuits(chosenComponent, sortedCards, howManyCards, i);
         }
-        for (int i = 0; i < 4; i++)
+
+        static void SetAlone10AndMarriagesSuits(IEnemyData component, GameObject[,] sortedCards, int[] howManyCards, int i)
         {
-            if (enemy <= 3)
-            {
-                if (sortedCards[i, 2] != null && sortedCards[i, 3] != null) thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[i] = 1;
-                else thousand.players[enemy].GetComponent<Enemy>().marriagesSuits[i] = 0;
-                if (sortedCards[i, 4] != null && howManyCards[i] == 2 && sortedCards[i, 5] == null) thousand.players[enemy].GetComponent<Enemy>().alone10[i] = 1;
-                else thousand.players[enemy].GetComponent<Enemy>().alone10[i] = 0;
-            }
-            else //simulation
-            {
-                if (sortedCards[i, 2] != null && sortedCards[i, 3] != null) thousand.players[enemy].GetComponent<Simulated>().marriagesSuits[i] = 1;
-                else thousand.players[enemy].GetComponent<Simulated>().marriagesSuits[i] = 0;
-                if (sortedCards[i, 4] != null && howManyCards[i] == 2 && sortedCards[i, 5] == null) thousand.players[enemy].GetComponent<Simulated>().alone10[i] = 1;
-                else thousand.players[enemy].GetComponent<Simulated>().alone10[i] = 0;
-            }
-            
-        }   
+            if (sortedCards[i, 2] != null && sortedCards[i, 3] != null) component.marriagesSuits[i] = 1;
+            else component.marriagesSuits[i] = 0;
+            if (sortedCards[i, 4] != null && howManyCards[i] == 2 && sortedCards[i, 5] == null) component.alone10[i] = 1;
+            else component.alone10[i] = 0;
+        }
     }
     public bool PlayerHasMarriage()
     {
-        GameObject[,] sortedCards = new GameObject[4, 6]
-        {
-            { null, null, null, null, null, null },
-            { null, null, null, null, null, null },
-            { null, null, null, null, null, null },
-            { null, null, null, null, null, null }
-        };
-        for (int i = 0; i < 4; i++)
-        {
-            foreach (GameObject card in thousand.playerCards)
-            {
-                if (card.GetComponent<Selectable2>().suit == i)
-                {
-                    sortedCards[i, card.GetComponent<Selectable2>().value] = card;
-                }
-            }
-        }
+        GameObject[,] sortedCards = SetSortedCardsHorizontal(thousand.playerCards);
         for (int i = 0; i < 4; i++)
         {
             if (sortedCards[i, 2] != null && sortedCards[i, 3] != null) return true;
@@ -870,7 +841,7 @@ public class Table : MonoBehaviour
     }
     private GameObject[] ChooseCardsToGive(List<GameObject[]> cardsToGive)
     {
-        GameObject[] choosenCards = new GameObject[2];
+        GameObject[] chosenCards = new GameObject[2];
         int safeToGivePoints;
         int minPoints = 100;
         for (int i = 0; i < cardsToGive.Count; i++)
@@ -880,116 +851,128 @@ public class Table : MonoBehaviour
             if (safeToGivePoints < minPoints)
             {
                 minPoints = safeToGivePoints;
-                choosenCards[0] = cardsToGive[i][0];
-                choosenCards[1] = cardsToGive[i][1];
+                chosenCards[0] = cardsToGive[i][0];
+                chosenCards[1] = cardsToGive[i][1];
             }
         }
-        return choosenCards;
+        return chosenCards;
     }
     private int SimulateAGame(GameObject card1, GameObject card2, int declarer, List<GameObject> enemyCards)
     {
         // set cards for other enemy (bot) [4]
-        if(declarer == 1)
-        {
-            foreach (Transform tran in thousand.players[3].transform)
-            {
-                GameObject card = tran.gameObject;
-                Instantiate(card, thousand.players[4].transform);
-            }
-            Instantiate(card1, thousand.players[4].transform);
-        }
-        else
-        {
-            foreach (Transform tran in thousand.players[1].transform)
-            {
-                GameObject card = tran.gameObject;
-                Instantiate(card, thousand.players[4].transform);
-            }
-            Instantiate(card1, thousand.players[4].transform);
-        }
+        if (declarer == 1) InstantiateCards(card1, 3, 4);
+        else InstantiateCards(card1, 1, 4);
+
         // set cards for a player [5]
-        foreach (Transform tran in thousand.players[0].transform)
-        {
-            GameObject card = tran.gameObject;
-            Instantiate(card, thousand.players[5].transform);
-        }
-        Instantiate(card2, thousand.players[5].transform);
+        InstantiateCards(card2, 0, 5);
+
         // set cards for playing enemy = declarer
-        List<GameObject> newEnemyCards = new(enemyCards); newEnemyCards.Remove(card1); newEnemyCards.Remove(card2);
-        foreach (GameObject card in newEnemyCards)
-        {
-            Instantiate(card, thousand.players[6].transform);
-        }
+        SetDeclarerCards(card1, card2, enemyCards);
+
         SetMarriagesSuits(4); SetMarriagesSuits(5); SetMarriagesSuits(6);
         // perform a simulation
-        Dictionary<int, int> turns;
-        if (declarer == 1)
-        {
-            turns = new()
-            {
-                { 0, 6 }, // declarer
-                { 1, 4 }, // bot
-                { 2, 5 } // player
-            };
-        }
-        else
-        {
-            turns = new()
-            {
-                { 0, 6 }, // declarer
-                { 1, 5 }, // player
-                { 2, 4 } // bot
-            };
-        }
+        Dictionary<int, int> turns = CreateDictionary(declarer);
         int turn = 0;
         int points = 0;
         GameObject cardToRemove = null;
-        //print("simulation loop begin");
-        while (thousand.players[6].transform.childCount > 0)
+        Dictionary<string, int> marriagesPoints = new()
         {
-            for (int i = 0; i < 3; i++)
-            {
-                //print("turn " + turn);
-                GameObject choosenCard = ChooseACard(turns[turn]);
-                //print("choosen card " + choosenCard.name);
-                cardsOnStack.Add(choosenCard);
-                if (turn == 0) cardToRemove = choosenCard;
-                playerNumbers.Add(turn);
-                turn++;
-                if (turn == 3) turn = 0;
-            }
-            // check who won
-            turn = WhoWon();
-            //print("who won " + turn);
-            if (turn == 0)
-            {
-                foreach (GameObject card in cardsOnStack)
-                {
-                    points += cardPoints[card.GetComponent<Selectable2>().value];
-                } 
-            }
-            if (CanDeclareMarriage(cardToRemove, 6) && playerNumbers[0] == 0)
-            {
-                //print("marriage declared");
-                if (cardToRemove.name is "HQ(Clone)" or "HK(Clone)") points += 100;
-                else if (cardToRemove.name is "DQ(Clone)" or "DK(Clone)") points += 80;
-                else if (cardToRemove.name is "CQ(Clone)" or "CK(Clone)") points += 60;
-                else if (cardToRemove.name is "SQ(Clone)" or "SK(Clone)") points += 40;
-            }
-            foreach (GameObject card in cardsOnStack)
-            {
-                removedCards.Add(card);
-                card.transform.SetParent(SimulateRemovedCards.transform);
-            }
-            cardsOnStack.Clear();
-            playerNumbers.Clear();
-            SetMarriagesSuits(4); SetMarriagesSuits(5); SetMarriagesSuits(6);
-        }
-        foreach(GameObject card in removedCards) Destroy(card);
+            { "HQ(Clone)", 100 },
+            { "HK(Clone)", 100 },
+            { "DQ(Clone)", 80 },
+            { "DK(Clone)", 80 },
+            { "CQ(Clone)", 60 },
+            { "CK(Clone)", 60 },
+            { "SQ(Clone)", 40 },
+            { "SK(Clone)", 40 }
+        };
+
+        //simulation loop
+        SimulaitonLoop(turns, ref turn, ref points, ref cardToRemove, marriagesPoints);
+
+        foreach (GameObject card in removedCards) Destroy(card);
         removedCards.Clear();
         marriageNumber = -1;
-        print("simulated points " + points);
         return points;
+
+        void InstantiateCards(GameObject card1, int fromPlayer, int toPlayer)
+        {
+            foreach (Transform tran in thousand.players[fromPlayer].transform)
+            {
+                GameObject card = tran.gameObject;
+                Instantiate(card, thousand.players[toPlayer].transform);
+            }
+            Instantiate(card1, thousand.players[toPlayer].transform);
+        }
+
+        void SetDeclarerCards(GameObject card1, GameObject card2, List<GameObject> enemyCards)
+        {
+            List<GameObject> newEnemyCards = new(enemyCards);
+            newEnemyCards.Remove(card1); newEnemyCards.Remove(card2);
+
+            foreach (GameObject card in newEnemyCards)
+            {
+                Instantiate(card, thousand.players[6].transform);
+            }
+        }
+
+        static Dictionary<int, int> CreateDictionary(int declarer)
+        {
+            Dictionary<int, int> turns;
+            if (declarer == 1)
+            {
+                turns = new()
+                {
+                    { 0, 6 }, // declarer
+                    { 1, 4 }, // bot
+                    { 2, 5 } // player
+                };
+            }
+            else
+            {
+                turns = new()
+                {
+                    { 0, 6 }, // declarer
+                    { 1, 5 }, // player
+                    { 2, 4 } // bot
+                };
+            }
+
+            return turns;
+        }
+
+        void SimulaitonLoop(Dictionary<int, int> turns, ref int turn, ref int points, ref GameObject cardToRemove, Dictionary<string, int> marriagesPoints)
+        {
+            while (thousand.players[6].transform.childCount > 0)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    GameObject choosenCard = ChooseACard(turns[turn]);
+                    cardsOnStack.Add(choosenCard);
+                    if (turn == 0) cardToRemove = choosenCard;
+                    playerNumbers.Add(turn);
+                    turn = (turn + 1) % 3;
+                }
+                // check who won
+                turn = WhoWon();
+                if (turn == 0)
+                {
+                    foreach (GameObject card in cardsOnStack)
+                        points += cardPoints[card.GetComponent<Selectable2>().value];
+                }
+                if (CanDeclareMarriage(cardToRemove, 6) && playerNumbers[0] == 0)
+                    points += marriagesPoints[cardToRemove.name];
+
+                foreach (GameObject card in cardsOnStack)
+                {
+                    removedCards.Add(card);
+                    card.transform.SetParent(SimulateRemovedCards.transform);
+                }
+                cardsOnStack.Clear();
+                playerNumbers.Clear();
+                SetMarriagesSuits(4); SetMarriagesSuits(5); SetMarriagesSuits(6);
+            }
+        }
     }
     private int FindMaxBid(List<GameObject> enemyCards)
     {
